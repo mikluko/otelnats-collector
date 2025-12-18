@@ -59,10 +59,10 @@ jobs:
           ko build --bare \
             --platform=linux/amd64,linux/arm64 \
             --tags ${{ steps.version.outputs.version }} \
-            --ldflags="-X main.version=${{ steps.version.outputs.version }}" \
             .
         env:
           KO_DOCKER_REPO: ghcr.io/${{ github.repository }}
+          GOFLAGS: -ldflags=-X=main.version=${{ steps.version.outputs.version }}
 
       - name: Build and push Helm chart
         run: |
