@@ -50,7 +50,8 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           else
-            echo "version=0.0.0-pr${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            SHORT_SHA="${GITHUB_SHA::7}"
+            echo "version=0.0.0-pr${{ github.event.pull_request.number }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
           fi
 
       - name: Build and push image
