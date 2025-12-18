@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Build and push image
-        run: ko build --bare --tags ${{ steps.version.outputs.version }} .
+        run: ko build --bare --platform=linux/amd64,linux/arm64 --tags ${{ steps.version.outputs.version }} .
         env:
           KO_DOCKER_REPO: ghcr.io/${{ github.repository }}
 
