@@ -6,3 +6,7 @@
 
 # Build output
 /bin/
+/dist/
+
+# Backup files
+*.bak
