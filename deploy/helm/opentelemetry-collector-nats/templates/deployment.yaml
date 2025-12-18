@@ -37,6 +37,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - --config=/etc/otelcol/config.yaml
+            - --feature-gates=otelcol.printInitialConfig
           {{- if eq .Values.mode "gateway" }}
           ports:
             - name: otlp-grpc
