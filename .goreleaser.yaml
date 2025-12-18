@@ -4,17 +4,16 @@ project_name: opentelemetry-collector-nats
 
 before:
   hooks:
-    - >-
-      sed -i.bak
-      -e 's/^version:.*/version: {{ .Version }}/'
-      -e 's/^appVersion:.*/appVersion: "{{ .Version }}"/'
-      deploy/helm/opentelemetry-collector-nats/Chart.yaml
-    - helm package deploy/helm/opentelemetry-collector-nats -d deploy/helm/
-    - mv deploy/helm/opentelemetry-collector-nats/Chart.yaml.bak deploy/helm/opentelemetry-collector-nats/Chart.yaml
+    - helm lint deploy/helm/opentelemetry-collector-nats
+    - helm package deploy/helm/opentelemetry-collector-nats --app-version {{ .Version }} --version {{ .Version }} -d deploy/helm
+
+publishers:
+  - name: helm
+    cmd: helm push deploy/helm/opentelemetry-collector-nats-{{ .Version }}.tgz oci://ghcr.io/mikluko/opentelemetry-collector-nats/charts
 
 builds:
   - id: collector
-    main: ./cmd/opentelemetry-collector-nats
+    main: .
     binary: opentelemetry-collector-nats
     env:
       - CGO_ENABLED=0
@@ -26,7 +25,20 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X main.version={{.Version}}
+      - -X main.version={{ .Version }}
+
+kos:
+  - id: opentelemetry-collector-nats
+    build: collector
+    repositories:
+      - ghcr.io/mikluko/opentelemetry-collector-nats
+    tags:
+      - "{{ .Version }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    sbom: spdx
+    bare: true
 
 archives:
   - id: default
@@ -55,5 +67,3 @@ release:
     name: opentelemetry-collector-nats
   draft: true
   prerelease: auto
-  extra_files:
-    - name_template: deploy/helm/opentelemetry-collector-nats-{{ .Version }}.tgz
