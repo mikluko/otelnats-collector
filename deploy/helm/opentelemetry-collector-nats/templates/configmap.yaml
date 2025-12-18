@@ -8,6 +8,10 @@ data:
   config.yaml: |
     {{- if eq .Values.mode "gateway" }}
     # Gateway mode: OTLP -> NATS
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+
     receivers:
       otlp:
         protocols:
@@ -63,6 +67,7 @@ data:
         verbosity: basic
 
     service:
+      extensions: [health_check]
       pipelines:
         traces:
           receivers: [otlp]
@@ -84,6 +89,10 @@ data:
 
     {{- else if eq .Values.mode "ingest" }}
     # Ingest mode: NATS -> backend
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+
     receivers:
       nats:
         url: {{ .Values.nats.url }}
@@ -136,6 +145,7 @@ data:
         verbosity: basic
 
     service:
+      extensions: [health_check]
       pipelines:
         {{- if .Values.ingest.backend.otlp.endpoint }}
         traces:
