@@ -56,4 +56,4 @@ release:
   draft: true
   prerelease: auto
   extra_files:
-    - glob: deploy/helm/opentelemetry-collector-nats-*.tgz
+    - name_template: deploy/helm/opentelemetry-collector-nats-{{ .Version }}.tgz
