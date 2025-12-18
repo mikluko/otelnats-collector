@@ -4,13 +4,12 @@ project_name: opentelemetry-collector-nats
 
 before:
   hooks:
-    - >-
-      sed -i.bak
-      -e 's/^version:.*/version: {{ .Version }}/'
-      -e 's/^appVersion:.*/appVersion: "{{ .Version }}"/'
-      deploy/helm/opentelemetry-collector-nats/Chart.yaml
-    - helm package deploy/helm/opentelemetry-collector-nats -d deploy/helm/
-    - mv deploy/helm/opentelemetry-collector-nats/Chart.yaml.bak deploy/helm/opentelemetry-collector-nats/Chart.yaml
+    - helm lint deploy/helm/opentelemetry-collector-nats
+    - helm package deploy/helm/opentelemetry-collector-nats --app-version {{ .Version }} --version {{ .Version }} -d deploy/helm
+
+publishers:
+  - name: helm
+    cmd: helm push deploy/helm/opentelemetry-collector-nats-{{ .Version }}.tgz oci://ghcr.io/mikluko/opentelemetry-collector-nats/helm
 
 builds:
   - id: collector
@@ -56,4 +55,4 @@ release:
   draft: true
   prerelease: auto
   extra_files:
-    - name_template: deploy/helm/opentelemetry-collector-nats-{{ .Version }}.tgz
+    - glob: deploy/helm/opentelemetry-collector-nats-{{ .Version }}.tgz
