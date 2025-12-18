@@ -1,11 +1,10 @@
-package e2e
+package natsexporter
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,38 +15,11 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
 	"github.com/mikluko/opentelemetry-collector-nats/internal/metadata"
-	"github.com/mikluko/opentelemetry-collector-nats/internal/natsexporter"
+	"github.com/mikluko/opentelemetry-collector-nats/internal/testutil"
 )
 
-// startEmbeddedNATS starts an embedded NATS server for testing
-func startEmbeddedNATS(t *testing.T) *server.Server {
-	t.Helper()
-	opts := &server.Options{
-		Host:           "127.0.0.1",
-		Port:           -1, // Random available port
-		NoLog:          true,
-		NoSigs:         true,
-		MaxControlLine: 4096,
-	}
-	ns, err := server.NewServer(opts)
-	require.NoError(t, err)
-
-	go ns.Start()
-
-	if !ns.ReadyForConnections(5 * time.Second) {
-		t.Fatal("NATS server failed to start")
-	}
-
-	t.Cleanup(func() {
-		ns.Shutdown()
-		ns.WaitForShutdown()
-	})
-
-	return ns
-}
-
-func TestExporterE2E_Traces(t *testing.T) {
-	ns := startEmbeddedNATS(t)
+func TestE2E_Traces(t *testing.T) {
+	ns := testutil.StartEmbeddedNATS(t)
 	ctx := context.Background()
 
 	// Subscribe to receive traces
@@ -63,8 +35,8 @@ func TestExporterE2E_Traces(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	// Create exporter
-	factory := natsexporter.NewFactory()
-	cfg := factory.CreateDefaultConfig().(*natsexporter.Config)
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.ClientConfig.URL = ns.ClientURL()
 	cfg.Traces.Subject = "test.traces"
 
@@ -102,8 +74,8 @@ func TestExporterE2E_Traces(t *testing.T) {
 	}
 }
 
-func TestExporterE2E_Metrics(t *testing.T) {
-	ns := startEmbeddedNATS(t)
+func TestE2E_Metrics(t *testing.T) {
+	ns := testutil.StartEmbeddedNATS(t)
 	ctx := context.Background()
 
 	nc, err := nats.Connect(ns.ClientURL())
@@ -117,8 +89,8 @@ func TestExporterE2E_Metrics(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	factory := natsexporter.NewFactory()
-	cfg := factory.CreateDefaultConfig().(*natsexporter.Config)
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.ClientConfig.URL = ns.ClientURL()
 	cfg.Metrics.Subject = "test.metrics"
 
@@ -154,8 +126,8 @@ func TestExporterE2E_Metrics(t *testing.T) {
 	}
 }
 
-func TestExporterE2E_Logs(t *testing.T) {
-	ns := startEmbeddedNATS(t)
+func TestE2E_Logs(t *testing.T) {
+	ns := testutil.StartEmbeddedNATS(t)
 	ctx := context.Background()
 
 	nc, err := nats.Connect(ns.ClientURL())
@@ -169,8 +141,8 @@ func TestExporterE2E_Logs(t *testing.T) {
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	factory := natsexporter.NewFactory()
-	cfg := factory.CreateDefaultConfig().(*natsexporter.Config)
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.ClientConfig.URL = ns.ClientURL()
 	cfg.Logs.Subject = "test.logs"
 
