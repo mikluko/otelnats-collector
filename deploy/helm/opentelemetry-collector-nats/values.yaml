@@ -1,0 +1,128 @@
+# Default values for opentelemetry-collector-nats
+
+# Mode: "gateway" (OTLP -> NATS) or "ingest" (NATS -> backend)
+mode: gateway
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/mikluko/opentelemetry-collector-nats
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  # OTLP gRPC port (only exposed in gateway mode)
+  otlpGrpcPort: 4317
+  # OTLP HTTP port (only exposed in gateway mode)
+  otlpHttpPort: 4318
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# NATS connection settings
+nats:
+  url: nats://nats:4222
+  auth:
+    # Uncomment and configure the auth method you need:
+    # userInfo:
+    #   username: ""
+    #   password: ""
+    # token: ""
+    # nkeyFile: ""
+    # credentialsFile: ""
+
+# Gateway mode settings (OTLP -> NATS)
+gateway:
+  # Subjects for each signal type
+  traces:
+    subject: otel.traces
+  metrics:
+    subject: otel.metrics
+  logs:
+    subject: otel.logs
+  # Exporter settings
+  timeout: 5s
+  retryOnFailure:
+    enabled: true
+    initialInterval: 1s
+    maxInterval: 30s
+    maxElapsedTime: 300s
+
+# Ingest mode settings (NATS -> backend)
+ingest:
+  # Subjects and queue groups for each signal type
+  traces:
+    subject: otel.traces
+    queueGroup: otel-traces-ingest
+  metrics:
+    subject: otel.metrics
+    queueGroup: otel-metrics-ingest
+  logs:
+    subject: otel.logs
+    queueGroup: otel-logs-ingest
+  # Backend export settings
+  backend:
+    # OTLP gRPC endpoint (for traces/logs)
+    otlp:
+      endpoint: ""
+      insecure: true
+    # OTLP HTTP endpoint (for metrics)
+    otlphttp:
+      endpoint: ""
+      insecure: true
+
+# Batch processor settings
+batch:
+  timeout: 1s
+  sendBatchSize: 1000
+
+# Memory limiter settings (gateway mode only)
+memoryLimiter:
+  checkInterval: 1s
+  limitMib: 512
+  spikeLimitMib: 128
+
+# Telemetry settings
+telemetry:
+  logs:
+    level: info
+  metrics:
+    level: normal
+
+# Additional config to merge (raw YAML)
+extraConfig: {}

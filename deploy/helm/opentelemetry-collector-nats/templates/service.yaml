@@ -1,0 +1,21 @@
+{{- if eq .Values.mode "gateway" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opentelemetry-collector-nats.fullname" . }}
+  labels:
+    {{- include "opentelemetry-collector-nats.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.otlpGrpcPort }}
+      targetPort: otlp-grpc
+      protocol: TCP
+      name: otlp-grpc
+    - port: {{ .Values.service.otlpHttpPort }}
+      targetPort: otlp-http
+      protocol: TCP
+      name: otlp-http
+  selector:
+    {{- include "opentelemetry-collector-nats.selectorLabels" . | nindent 4 }}
+{{- end }}

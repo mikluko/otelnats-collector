@@ -1,0 +1,8 @@
+.*
+!.github/
+!.gitignore
+!.gitattributes
+!.goreleaser.yaml
+
+# Build output
+/bin/

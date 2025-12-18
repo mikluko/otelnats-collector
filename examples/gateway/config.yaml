@@ -1,0 +1,73 @@
+# Gateway Configuration
+# Receives OTLP telemetry and publishes to NATS
+#
+# Use case: Per-cluster gateway that collects telemetry from applications
+# and forwards it to a central NATS cluster for processing.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1000
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  nats:
+    url: nats://nats.example.com:4222
+    # auth:
+    #   user_info:
+    #     username: otel
+    #     password: ${env:NATS_PASSWORD}
+    #   # Or use token:
+    #   # token: ${env:NATS_TOKEN}
+    #   # Or use NKey:
+    #   # nkey_file: /etc/nats/nkey.seed
+    #   # Or use credentials file:
+    #   # credentials_file: /etc/nats/user.creds
+    traces:
+      subject: otel.traces
+    metrics:
+      subject: otel.metrics
+    logs:
+      subject: otel.logs
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [nats]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [nats]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [nats]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: normal
