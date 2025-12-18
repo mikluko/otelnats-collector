@@ -4,6 +4,7 @@ go 1.25.5
 
 require (
 	github.com/nats-io/nats.go v1.48.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.142.0
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/collector/component v1.48.0
 	go.opentelemetry.io/collector/component/componenttest v0.142.0
