@@ -4,14 +4,13 @@ project_name: opentelemetry-collector-nats
 
 before:
   hooks:
-    - go mod tidy
-    # Update Helm chart version and package
     - >-
       sed -i.bak
       -e 's/^version:.*/version: {{ .Version }}/'
       -e 's/^appVersion:.*/appVersion: "{{ .Version }}"/'
       deploy/helm/opentelemetry-collector-nats/Chart.yaml
-    - helm package deploy/helm/opentelemetry-collector-nats -d dist/
+    - helm package deploy/helm/opentelemetry-collector-nats -d deploy/helm/
+    - mv deploy/helm/opentelemetry-collector-nats/Chart.yaml.bak deploy/helm/opentelemetry-collector-nats/Chart.yaml
 
 builds:
   - id: collector
@@ -54,7 +53,7 @@ release:
   github:
     owner: mikluko
     name: opentelemetry-collector-nats
-  draft: false
+  draft: true
   prerelease: auto
   extra_files:
-    - glob: dist/opentelemetry-collector-nats-*.tgz
+    - glob: deploy/helm/opentelemetry-collector-nats-*.tgz
