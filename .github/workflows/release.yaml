@@ -60,4 +60,4 @@ jobs:
             --version ${{ steps.version.outputs.version }} \
             --app-version ${{ steps.version.outputs.version }}
           helm push opentelemetry-collector-nats-${{ steps.version.outputs.version }}.tgz \
-            oci://ghcr.io/${{ github.repository }}/charts
+            oci://ghcr.io/${{ github.repository_owner }}/helm-charts
