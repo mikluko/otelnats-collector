@@ -4,7 +4,6 @@
 BINARY_NAME := opentelemetry-collector-nats
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.0-dev")
 BUILD_DIR := ./bin
-CMD_DIR := ./cmd/opentelemetry-collector-nats
 
 # Go build flags
 LDFLAGS := -ldflags "-X main.version=$(VERSION)"
@@ -12,7 +11,7 @@ LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 ## build: Build the collector binary
 build: tidy
 	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(CMD_DIR)
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "Built $(BUILD_DIR)/$(BINARY_NAME)"
 
 ## test: Run tests
