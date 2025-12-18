@@ -48,11 +48,12 @@ jobs:
         id: version
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            VERSION="${GITHUB_REF#refs/tags/v}"
           else
-            SHORT_SHA="${GITHUB_SHA::7}"
-            echo "version=0.0.0-pr${{ github.event.pull_request.number }}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            VERSION="0.0.0-pr${{ github.event.pull_request.number }}-${GITHUB_SHA::7}"
           fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "## Release: \`${VERSION}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Build and push image
         run: |
@@ -71,3 +72,11 @@ jobs:
             --app-version ${{ steps.version.outputs.version }}
           helm push opentelemetry-collector-nats-${{ steps.version.outputs.version }}.tgz \
             oci://ghcr.io/${{ github.repository_owner }}/helm-charts
+
+      - name: Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ### Artifacts
+          - **Image:** \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}\`
+          - **Chart:** \`oci://ghcr.io/${{ github.repository_owner }}/helm-charts/opentelemetry-collector-nats:${{ steps.version.outputs.version }}\`
+          EOF
