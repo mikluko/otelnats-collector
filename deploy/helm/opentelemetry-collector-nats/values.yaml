@@ -126,3 +126,19 @@ telemetry:
 
 # Additional config to merge (raw YAML)
 extraConfig: {}
+
+# Extra volumes to mount (for secrets, configmaps, etc.)
+# Example:
+#   extraVolumes:
+#     - name: nats-creds
+#       secret:
+#         secretName: nats-credentials
+extraVolumes: []
+
+# Extra volume mounts for the collector container
+# Example:
+#   extraVolumeMounts:
+#     - name: nats-creds
+#       mountPath: /etc/nats
+#       readOnly: true
+extraVolumeMounts: []
