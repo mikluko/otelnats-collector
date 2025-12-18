@@ -1,0 +1,19 @@
+apiVersion: v2
+name: opentelemetry-collector-nats
+description: OpenTelemetry Collector with NATS receiver and exporter support
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - opentelemetry
+  - nats
+  - observability
+  - telemetry
+  - tracing
+  - metrics
+  - logging
+maintainers:
+  - name: mikluko
+    url: https://github.com/mikluko
+sources:
+  - https://github.com/mikluko/opentelemetry-collector-nats
