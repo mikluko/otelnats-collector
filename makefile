@@ -1,7 +1,7 @@
 .PHONY: build test lint clean tidy
 
 # Build variables
-BINARY_NAME := opentelemetry-collector-nats
+BINARY_NAME := nats-otel-collector
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.0-dev")
 BUILD_DIR := ./bin
 
