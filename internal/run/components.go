@@ -17,8 +17,8 @@ import (
 	"go.opentelemetry.io/collector/receiver/otlpreceiver"
 	"go.opentelemetry.io/collector/service/telemetry/otelconftelemetry"
 
-	"github.com/mikluko/opentelemetry-collector-nats/internal/natsexporter"
-	"github.com/mikluko/opentelemetry-collector-nats/internal/natsreceiver"
+	"github.com/mikluko/nats-otel-collector/internal/natsexporter"
+	"github.com/mikluko/nats-otel-collector/internal/natsreceiver"
 )
 
 func components() (otelcol.Factories, error) {

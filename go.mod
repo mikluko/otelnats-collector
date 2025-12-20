@@ -1,4 +1,4 @@
-module github.com/mikluko/opentelemetry-collector-nats
+module github.com/mikluko/nats-otel-collector
 
 go 1.25.5
 

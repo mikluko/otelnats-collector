@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "opentelemetry-collector-nats.fullname" . }}
+  name: {{ include "nats-otel-collector.fullname" . }}
   labels:
-    {{- include "opentelemetry-collector-nats.labels" . | nindent 4 }}
+    {{- include "nats-otel-collector.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -17,5 +17,5 @@ spec:
       protocol: TCP
       name: otlp-http
   selector:
-    {{- include "opentelemetry-collector-nats.selectorLabels" . | nindent 4 }}
+    {{- include "nats-otel-collector.selectorLabels" . | nindent 4 }}
 {{- end }}

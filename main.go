@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/mikluko/opentelemetry-collector-nats/internal/run"
+	"github.com/mikluko/nats-otel-collector/internal/run"
 )
 
 var (

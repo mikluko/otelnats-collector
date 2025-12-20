@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/exporter/exportertest"
 
-	"github.com/mikluko/opentelemetry-collector-nats/internal/metadata"
+	"github.com/mikluko/nats-otel-collector/internal/metadata"
 )
 
 func TestNewFactory(t *testing.T) {

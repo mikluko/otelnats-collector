@@ -6,7 +6,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 
-	internalnats "github.com/mikluko/opentelemetry-collector-nats/internal/nats"
+	internalnats "github.com/mikluko/nats-otel-collector/internal/nats"
 )
 
 // Config defines configuration for the NATS receiver.

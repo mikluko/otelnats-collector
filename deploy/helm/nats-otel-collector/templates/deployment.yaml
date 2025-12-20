@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "opentelemetry-collector-nats.fullname" . }}
+  name: {{ include "nats-otel-collector.fullname" . }}
   labels:
-    {{- include "opentelemetry-collector-nats.labels" . | nindent 4 }}
+    {{- include "nats-otel-collector.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "opentelemetry-collector-nats.selectorLabels" . | nindent 6 }}
+      {{- include "nats-otel-collector.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -17,7 +17,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "opentelemetry-collector-nats.labels" . | nindent 8 }}
+        {{- include "nats-otel-collector.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -26,7 +26,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "opentelemetry-collector-nats.serviceAccountName" . }}
+      serviceAccountName: {{ include "nats-otel-collector.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -71,7 +71,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "opentelemetry-collector-nats.fullname" . }}
+            name: {{ include "nats-otel-collector.fullname" . }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

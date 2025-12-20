@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	internalnats "github.com/mikluko/opentelemetry-collector-nats/internal/nats"
+	internalnats "github.com/mikluko/nats-otel-collector/internal/nats"
 )
 
 func TestConfig_Validate(t *testing.T) {

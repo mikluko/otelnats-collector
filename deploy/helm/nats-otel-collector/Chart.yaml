@@ -1,5 +1,5 @@
 apiVersion: v2
-name: opentelemetry-collector-nats
+name: nats-otel-collector
 description: OpenTelemetry Collector with NATS receiver and exporter support
 type: application
 version: 0.1.0
@@ -16,4 +16,4 @@ maintainers:
   - name: mikluko
     url: https://github.com/mikluko
 sources:
-  - https://github.com/mikluko/opentelemetry-collector-nats
+  - https://github.com/mikluko/nats-otel-collector
