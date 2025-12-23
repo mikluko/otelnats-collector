@@ -12,7 +12,7 @@ import (
 
 func Main(version string) error {
 	info := component.BuildInfo{
-		Command:     "nats-otel-collector",
+		Command:     "otelnats-collector",
 		Description: "OpenTelemetry Collector with NATS support",
 		Version:     version,
 	}

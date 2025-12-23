@@ -1,4 +1,4 @@
-module github.com/mikluko/nats-otel-collector
+module github.com/mikluko/otelnats-collector
 
 go 1.25.5
 

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/mikluko/nats-otel-collector/internal/run"
+	"github.com/mikluko/otelnats-collector/internal/run"
 )
 
 var (

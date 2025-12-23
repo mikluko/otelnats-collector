@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/collector/config/configretry"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
-	internalnats "github.com/mikluko/nats-otel-collector/internal/nats"
+	internalnats "github.com/mikluko/otelnats-collector/internal/nats"
 )
 
 // Config defines configuration for the NATS exporter.

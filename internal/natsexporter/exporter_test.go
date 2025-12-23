@@ -14,8 +14,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 
-	"github.com/mikluko/nats-otel-collector/internal/metadata"
-	"github.com/mikluko/nats-otel-collector/internal/testutil"
+	"github.com/mikluko/otelnats-collector/internal/metadata"
+	"github.com/mikluko/otelnats-collector/internal/testutil"
 )
 
 func TestE2E_Traces(t *testing.T) {

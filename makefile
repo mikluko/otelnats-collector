@@ -1,7 +1,7 @@
-.PHONY: build test lint clean tidy
+.PHONY: build test lint clean tidy helm-lint helm-test
 
 # Build variables
-BINARY_NAME := nats-otel-collector
+BINARY_NAME := otelnats-collector
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.0-dev")
 BUILD_DIR := ./bin
 
@@ -33,6 +33,17 @@ clean:
 ## run: Run the collector with example config
 run: build
 	$(BUILD_DIR)/$(BINARY_NAME) --config examples/gateway/config.yaml
+
+# Helm variables
+HELM_CHART := deploy/helm/otelnats-collector
+
+## helm-lint: Lint the Helm chart
+helm-lint:
+	helm lint $(HELM_CHART)
+
+## helm-test: Run Helm chart unit tests
+helm-test:
+	helm unittest $(HELM_CHART)
 
 ## help: Show this help message
 help:

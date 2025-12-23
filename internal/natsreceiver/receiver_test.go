@@ -15,8 +15,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 
-	"github.com/mikluko/nats-otel-collector/internal/metadata"
-	"github.com/mikluko/nats-otel-collector/internal/testutil"
+	"github.com/mikluko/otelnats-collector/internal/metadata"
+	"github.com/mikluko/otelnats-collector/internal/testutil"
 )
 
 func TestE2E_ReceiveTraces(t *testing.T) {

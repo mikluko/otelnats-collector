@@ -1,4 +1,4 @@
-# Default values for nats-otel-collector
+# Default values for otelnats-collector
 
 # Mode: "gateway" (OTLP -> NATS) or "ingest" (NATS -> backend)
 mode: gateway
@@ -6,7 +6,7 @@ mode: gateway
 replicaCount: 1
 
 image:
-  repository: ghcr.io/mikluko/nats-otel-collector
+  repository: ghcr.io/mikluko/otelnats-collector
   pullPolicy: IfNotPresent
   tag: ""
 
@@ -62,13 +62,13 @@ affinity: {}
 #     whenUnsatisfiable: ScheduleAnyway
 #     labelSelector:
 #       matchLabels:
-#         app.kubernetes.io/name: nats-otel-collector
+#         app.kubernetes.io/name: otelnats-collector
 #   - maxSkew: 1
 #     topologyKey: kubernetes.io/hostname
 #     whenUnsatisfiable: ScheduleAnyway
 #     labelSelector:
 #       matchLabels:
-#         app.kubernetes.io/name: nats-otel-collector
+#         app.kubernetes.io/name: otelnats-collector
 topologySpreadConstraints: []
 
 # Horizontal Pod Autoscaler settings

@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "nats-otel-collector.fullname" . }}
+  name: {{ include "otelnats-collector.fullname" . }}
   labels:
-    {{- include "nats-otel-collector.labels" . | nindent 4 }}
+    {{- include "otelnats-collector.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "nats-otel-collector.selectorLabels" . | nindent 6 }}
+      {{- include "otelnats-collector.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -19,7 +19,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "nats-otel-collector.labels" . | nindent 8 }}
+        {{- include "otelnats-collector.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -28,7 +28,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "nats-otel-collector.serviceAccountName" . }}
+      serviceAccountName: {{ include "otelnats-collector.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -73,7 +73,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "nats-otel-collector.fullname" . }}
+            name: {{ include "otelnats-collector.fullname" . }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

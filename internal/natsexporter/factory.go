@@ -9,8 +9,8 @@ import (
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 
-	"github.com/mikluko/nats-otel-collector/internal/metadata"
-	internalnats "github.com/mikluko/nats-otel-collector/internal/nats"
+	"github.com/mikluko/otelnats-collector/internal/metadata"
+	internalnats "github.com/mikluko/otelnats-collector/internal/nats"
 )
 
 const (

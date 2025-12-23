@@ -2,9 +2,9 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "nats-otel-collector.fullname" . }}
+  name: {{ include "otelnats-collector.fullname" . }}
   labels:
-    {{- include "nats-otel-collector.labels" . | nindent 4 }}
+    {{- include "otelnats-collector.labels" . | nindent 4 }}
 spec:
   {{- if .Values.podDisruptionBudget.minAvailable }}
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
@@ -14,5 +14,5 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "nats-otel-collector.selectorLabels" . | nindent 6 }}
+      {{- include "otelnats-collector.selectorLabels" . | nindent 6 }}
 {{- end }}

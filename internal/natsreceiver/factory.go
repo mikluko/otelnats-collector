@@ -7,8 +7,8 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
 
-	"github.com/mikluko/nats-otel-collector/internal/metadata"
-	internalnats "github.com/mikluko/nats-otel-collector/internal/nats"
+	"github.com/mikluko/otelnats-collector/internal/metadata"
+	internalnats "github.com/mikluko/otelnats-collector/internal/nats"
 )
 
 const (

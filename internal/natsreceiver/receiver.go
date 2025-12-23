@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/collector/receiver/receiverhelper"
 	"go.uber.org/zap"
 
-	internalnats "github.com/mikluko/nats-otel-collector/internal/nats"
+	internalnats "github.com/mikluko/otelnats-collector/internal/nats"
 )
 
 type natsReceiver struct {
