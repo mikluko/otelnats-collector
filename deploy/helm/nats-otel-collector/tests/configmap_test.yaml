@@ -1,0 +1,351 @@
+suite: configmap tests
+templates:
+  - templates/configmap.yaml
+tests:
+  - it: should render ConfigMap with correct apiVersion and kind
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: apiVersion
+          value: v1
+
+  - it: should contain config.yaml data key
+    asserts:
+      - exists:
+          path: data["config.yaml"]
+
+  # Gateway mode tests
+  - it: gateway mode should configure OTLP receiver
+    set:
+      mode: gateway
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "receivers:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "otlp:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "endpoint: 0.0.0.0:4317"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "endpoint: 0.0.0.0:4318"
+
+  - it: gateway mode should configure NATS exporter with default subjects
+    set:
+      mode: gateway
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "nats:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "subject: otel.traces"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "subject: otel.metrics"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "subject: otel.logs"
+
+  - it: gateway mode should configure custom subjects
+    set:
+      mode: gateway
+      gateway:
+        traces:
+          subject: custom.traces
+        metrics:
+          subject: custom.metrics
+        logs:
+          subject: custom.logs
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "subject: custom.traces"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "subject: custom.metrics"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "subject: custom.logs"
+
+  - it: gateway mode should include memory_limiter processor
+    set:
+      mode: gateway
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "memory_limiter:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "limit_mib: 512"
+
+  - it: gateway mode should include batch processor
+    set:
+      mode: gateway
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "batch:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "timeout: 1s"
+
+  - it: gateway mode should include retry_on_failure when enabled
+    set:
+      mode: gateway
+      gateway:
+        retryOnFailure:
+          enabled: true
+          initialInterval: 2s
+          maxInterval: 60s
+          maxElapsedTime: 600s
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "retry_on_failure:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "initial_interval: 2s"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "max_interval: 60s"
+
+  - it: gateway mode should not include retry_on_failure when disabled
+    set:
+      mode: gateway
+      gateway:
+        retryOnFailure:
+          enabled: false
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "retry_on_failure:"
+
+  - it: gateway mode pipelines should use correct components
+    set:
+      mode: gateway
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "traces:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "receivers: \\[otlp\\]"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "processors: \\[memory_limiter, batch\\]"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "exporters: \\[nats\\]"
+
+  # Ingest mode tests
+  - it: ingest mode should configure NATS receiver
+    set:
+      mode: ingest
+      ingest:
+        backend:
+          otlp:
+            endpoint: otel-collector:4317
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "receivers:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "nats:"
+
+  - it: ingest mode should configure queue groups
+    set:
+      mode: ingest
+      ingest:
+        traces:
+          queueGroup: my-traces-queue
+        metrics:
+          queueGroup: my-metrics-queue
+        logs:
+          queueGroup: my-logs-queue
+        backend:
+          otlp:
+            endpoint: otel-collector:4317
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "queue_group: my-traces-queue"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "queue_group: my-metrics-queue"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "queue_group: my-logs-queue"
+
+  - it: ingest mode should configure OTLP backend when endpoint set
+    set:
+      mode: ingest
+      ingest:
+        backend:
+          otlp:
+            endpoint: otel-collector:4317
+            insecure: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "otlp:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "endpoint: otel-collector:4317"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "insecure: true"
+
+  - it: ingest mode should configure OTLPHTTP backend when endpoint set
+    set:
+      mode: ingest
+      ingest:
+        backend:
+          otlphttp:
+            endpoint: http://otel-collector:4318
+            insecure: true
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "otlphttp:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "endpoint: http://otel-collector:4318"
+
+  - it: ingest mode should not include memory_limiter
+    set:
+      mode: ingest
+      ingest:
+        backend:
+          otlp:
+            endpoint: otel-collector:4317
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: "memory_limiter:"
+
+  # Authentication tests (apply to both modes)
+  - it: should configure userInfo authentication in gateway mode
+    set:
+      mode: gateway
+      nats:
+        auth:
+          userInfo:
+            username: testuser
+            password: testpass
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'user_info:'
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'username: "testuser"'
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'password: "testpass"'
+
+  - it: should configure token authentication in gateway mode
+    set:
+      mode: gateway
+      nats:
+        auth:
+          token: my-secret-token
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'token: "my-secret-token"'
+
+  - it: should configure nkeyFile authentication in gateway mode
+    set:
+      mode: gateway
+      nats:
+        auth:
+          nkeyFile: /etc/nats/nkey
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'nkey_file: "/etc/nats/nkey"'
+
+  - it: should configure credentialsFile authentication in gateway mode
+    set:
+      mode: gateway
+      nats:
+        auth:
+          credentialsFile: /etc/nats/creds
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'credentials_file: "/etc/nats/creds"'
+
+  - it: should configure userInfo authentication in ingest mode
+    set:
+      mode: ingest
+      nats:
+        auth:
+          userInfo:
+            username: testuser
+            password: testpass
+      ingest:
+        backend:
+          otlp:
+            endpoint: otel-collector:4317
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'user_info:'
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'username: "testuser"'
+
+  # Telemetry tests
+  - it: should configure telemetry log level
+    set:
+      mode: gateway
+      telemetry:
+        logs:
+          level: debug
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "level: debug"
+
+  - it: should configure telemetry metrics level
+    set:
+      mode: gateway
+      telemetry:
+        metrics:
+          level: detailed
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "level: detailed"
+
+  # NATS URL configuration
+  - it: should configure custom NATS URL
+    set:
+      mode: gateway
+      nats:
+        url: nats://custom-nats:4222
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "url: nats://custom-nats:4222"
+
+  # Health check extension
+  - it: should configure health check extension
+    set:
+      mode: gateway
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "health_check:"
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: "endpoint: 0.0.0.0:13133"

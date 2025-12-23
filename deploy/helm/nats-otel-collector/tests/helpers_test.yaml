@@ -1,0 +1,144 @@
+suite: helpers tests
+templates:
+  - templates/deployment.yaml
+  - templates/configmap.yaml
+tests:
+  # otelnats-collector.name tests
+  - it: should use chart name by default for name label
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: otelnats-collector
+
+  - it: should use nameOverride for name label when set
+    template: templates/deployment.yaml
+    set:
+      nameOverride: custom-name
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: custom-name
+
+  # otelnats-collector.fullname tests
+  - it: should use release name and chart name for fullname
+    template: templates/deployment.yaml
+    release:
+      name: my-release
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-release-otelnats-collector
+
+  - it: should use fullnameOverride for resource name when set
+    template: templates/deployment.yaml
+    set:
+      fullnameOverride: my-custom-collector
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-custom-collector
+
+  - it: should not duplicate release name when it matches chart name
+    template: templates/deployment.yaml
+    release:
+      name: otelnats-collector
+    asserts:
+      - equal:
+          path: metadata.name
+          value: otelnats-collector
+
+  # otelnats-collector.selectorLabels tests
+  - it: should include mode in selector labels for gateway
+    template: templates/deployment.yaml
+    set:
+      mode: gateway
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: gateway
+
+  - it: should include mode in selector labels for ingest
+    template: templates/deployment.yaml
+    set:
+      mode: ingest
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: ingest
+
+  - it: should include app name in selector labels
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: otelnats-collector
+
+  - it: should include instance in selector labels
+    template: templates/deployment.yaml
+    release:
+      name: my-release
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+          value: my-release
+
+  # otelnats-collector.labels tests
+  - it: should include helm chart label
+    template: templates/deployment.yaml
+    asserts:
+      - matchRegex:
+          path: metadata.labels["helm.sh/chart"]
+          pattern: "^otelnats-collector-"
+
+  - it: should include managed-by label
+    template: templates/deployment.yaml
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+
+  - it: should include version label from appVersion
+    template: templates/deployment.yaml
+    chart:
+      appVersion: 1.2.3
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/version"]
+          value: "1.2.3"
+
+  # otelnats-collector.serviceAccountName tests (via deployment spec)
+  - it: should use custom service account name when specified
+    template: templates/deployment.yaml
+    set:
+      serviceAccount:
+        create: true
+        name: custom-sa
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: custom-sa
+
+  - it: should use fullname for service account when name not specified
+    template: templates/deployment.yaml
+    set:
+      serviceAccount:
+        create: true
+        name: ""
+    release:
+      name: test-release
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: test-release-otelnats-collector
+
+  - it: should use default service account when creation is disabled
+    template: templates/deployment.yaml
+    set:
+      serviceAccount:
+        create: false
+        name: ""
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: default
