@@ -1,12 +1,13 @@
 apiVersion: v2
 name: otelnats-collector
-description: OpenTelemetry Collector with NATS receiver and exporter support
+description: OpenTelemetry Collector with Core NATS and JetStream exporter and receiver support
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
 keywords:
   - opentelemetry
   - nats
+  - jetstream
   - observability
   - telemetry
   - tracing
