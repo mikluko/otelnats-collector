@@ -130,7 +130,17 @@ gateway:
 
 # Ingest mode settings (NATS -> backend)
 ingest:
-  # Subjects and queue groups for each signal type
+  # JetStream configuration (optional)
+  # If enabled, uses JetStream consumers instead of queue groups for at-least-once delivery
+  jetstream:
+    enabled: false
+    stream: OTEL_TELEMETRY
+    consumer: otel-collector
+    # Optional: ack wait timeout for JetStream messages
+    ackWait: 30s
+    # Optional: backlog size for JetStream consumer
+    backlogSize: 100
+  # Subjects and queue groups for each signal type (queue groups only used when JetStream disabled)
   traces:
     subject: otel.traces
     queueGroup: otel-traces-ingest

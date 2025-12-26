@@ -113,15 +113,25 @@ data:
           credentials_file: {{ .Values.nats.auth.credentialsFile | quote }}
           {{- end }}
         {{- end }}
+        {{- if .Values.ingest.jetstream.enabled }}
+        jetstream:
+          stream: {{ .Values.ingest.jetstream.stream }}
+          consumer: {{ .Values.ingest.jetstream.consumer }}
+          {{- if .Values.ingest.jetstream.ackWait }}
+          ack_wait: {{ .Values.ingest.jetstream.ackWait }}
+          {{- end }}
+          {{- if .Values.ingest.jetstream.backlogSize }}
+          backlog_size: {{ .Values.ingest.jetstream.backlogSize }}
+          {{- end }}
+        {{- else }}
+        queue_group: {{ .Values.ingest.traces.queueGroup }}
+        {{- end }}
         traces:
           subject: {{ .Values.ingest.traces.subject | quote }}
-          queue_group: {{ .Values.ingest.traces.queueGroup }}
         metrics:
           subject: {{ .Values.ingest.metrics.subject | quote }}
-          queue_group: {{ .Values.ingest.metrics.queueGroup }}
         logs:
           subject: {{ .Values.ingest.logs.subject | quote }}
-          queue_group: {{ .Values.ingest.logs.queueGroup }}
 
     processors:
       batch:
