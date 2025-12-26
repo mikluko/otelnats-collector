@@ -199,3 +199,92 @@ func TestE2E_ReceiveLogs(t *testing.T) {
 	got := sink.AllLogs()[0]
 	assert.Equal(t, "test log message", got.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Body().Str())
 }
+
+// TestE2E_MetricsOnlyReceiver_DoesNotSubscribeToOtherSignals verifies that a
+// metrics-only receiver doesn't subscribe to logs/traces subjects even when they
+// are configured in the default config. This is a regression test for the bug
+// where receivers would subscribe to all configured subjects regardless of which
+// signal they were created for, causing "no message handler configured" errors.
+func TestE2E_MetricsOnlyReceiver_DoesNotSubscribeToOtherSignals(t *testing.T) {
+	ns := testutil.StartEmbeddedNATS(t)
+	ctx := context.Background()
+
+	sink := &consumertest.MetricsSink{}
+
+	// Create metrics-only receiver with default config (which has ALL signal subjects set)
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.ClientConfig.URL = ns.ClientURL()
+	// Default config has traces, metrics, and logs subjects all configured
+
+	set := receivertest.NewNopSettings(metadata.Type)
+	rcv, err := factory.CreateMetrics(ctx, set, cfg, sink)
+	require.NoError(t, err)
+
+	err = rcv.Start(ctx, componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer rcv.Shutdown(ctx)
+
+	nc, err := nats.Connect(ns.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
+	// Publish log message to the logs subject (receiver should NOT be subscribed)
+	logs := plog.NewLogs()
+	rl := logs.ResourceLogs().AppendEmpty()
+	sl := rl.ScopeLogs().AppendEmpty()
+	lr := sl.LogRecords().AppendEmpty()
+	lr.Body().SetStr("this should be ignored")
+
+	marshaler := &plog.ProtoMarshaler{}
+	data, err := marshaler.MarshalLogs(logs)
+	require.NoError(t, err)
+
+	headers := otelnats.BuildHeaders(ctx, otelnats.SignalLogs, otelnats.EncodingProtobuf, nil)
+	msg := &nats.Msg{
+		Subject: cfg.Logs.Subject, // Using default logs subject
+		Data:    data,
+		Header:  headers,
+	}
+
+	err = nc.PublishMsg(msg)
+	require.NoError(t, err)
+	nc.Flush()
+
+	// Wait a bit to ensure receiver would have processed if subscribed
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify NO logs were received (because we shouldn't be subscribed)
+	assert.Equal(t, 0, sink.DataPointCount(), "metrics receiver should not receive logs")
+
+	// Now publish a metrics message to verify receiver is working
+	metrics := pmetric.NewMetrics()
+	rm := metrics.ResourceMetrics().AppendEmpty()
+	rm.Resource().Attributes().PutStr("service.name", "test-service")
+	sm := rm.ScopeMetrics().AppendEmpty()
+	m := sm.Metrics().AppendEmpty()
+	m.SetName("test.counter")
+	m.SetEmptyGauge().DataPoints().AppendEmpty().SetIntValue(42)
+
+	metricsMarshaler := &pmetric.ProtoMarshaler{}
+	metricsData, err := metricsMarshaler.MarshalMetrics(metrics)
+	require.NoError(t, err)
+
+	metricsHeaders := otelnats.BuildHeaders(ctx, otelnats.SignalMetrics, otelnats.EncodingProtobuf, nil)
+	metricsMsg := &nats.Msg{
+		Subject: cfg.Metrics.Subject,
+		Data:    metricsData,
+		Header:  metricsHeaders,
+	}
+
+	err = nc.PublishMsg(metricsMsg)
+	require.NoError(t, err)
+	nc.Flush()
+
+	// Verify metrics ARE received
+	require.Eventually(t, func() bool {
+		return sink.DataPointCount() > 0
+	}, 5*time.Second, 10*time.Millisecond)
+
+	assert.Equal(t, 1, sink.DataPointCount())
+}

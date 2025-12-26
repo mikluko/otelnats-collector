@@ -88,26 +88,24 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 		otelnats.WithReceiverErrorHandler(r.handleError),
 	}
 
-	// Set per-signal subjects from config
-	if r.config.Traces.Subject != "" {
-		opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalTraces, r.config.Traces.Subject))
-	}
-	if r.config.Metrics.Subject != "" {
-		opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalMetrics, r.config.Metrics.Subject))
-	}
-	if r.config.Logs.Subject != "" {
-		opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalLogs, r.config.Logs.Subject))
-	}
-
-	// Register handlers for enabled signals
+	// Register handlers and subjects only for enabled signals (where consumer is not nil)
 	if r.tracesConsumer != nil {
 		opts = append(opts, otelnats.WithReceiverTracesHandler(r.handleTracesMessage))
+		if r.config.Traces.Subject != "" {
+			opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalTraces, r.config.Traces.Subject))
+		}
 	}
 	if r.metricsConsumer != nil {
 		opts = append(opts, otelnats.WithReceiverMetricsHandler(r.handleMetricsMessage))
+		if r.config.Metrics.Subject != "" {
+			opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalMetrics, r.config.Metrics.Subject))
+		}
 	}
 	if r.logsConsumer != nil {
 		opts = append(opts, otelnats.WithReceiverLogsHandler(r.handleLogsMessage))
+		if r.config.Logs.Subject != "" {
+			opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalLogs, r.config.Logs.Subject))
+		}
 	}
 
 	// Add mode-specific options
