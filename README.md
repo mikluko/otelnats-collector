@@ -56,10 +56,36 @@ docker run -v $(pwd)/config.yaml:/etc/otel/config.yaml \
 
 ### Kubernetes (Helm)
 
+Use the official OpenTelemetry Collector Helm chart with the custom NATS-enabled image:
+
 ```bash
-helm install nats-otel-collector ./deploy/helm/nats-otel-collector \
-  --set config.receivers.nats.url="nats://nats:4222"
+# Add the official OpenTelemetry Helm repository
+helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo update
 ```
+
+#### Gateway Mode (OTLP → NATS)
+
+```bash
+helm install otelnats-gateway open-telemetry/opentelemetry-collector \
+  -f examples/helm/gateway-values.yaml
+```
+
+#### Ingest Mode (NATS → Backend)
+
+Core NATS with queue groups:
+```bash
+helm install otelnats-ingest open-telemetry/opentelemetry-collector \
+  -f examples/helm/ingest-values.yaml
+```
+
+JetStream with at-least-once delivery:
+```bash
+helm install otelnats-ingest open-telemetry/opentelemetry-collector \
+  -f examples/helm/ingest-jetstream-values.yaml
+```
+
+See [examples/helm/](./examples/helm/) for complete values file examples.
 
 ## Configuration
 

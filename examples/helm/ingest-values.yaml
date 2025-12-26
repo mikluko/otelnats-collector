@@ -1,0 +1,71 @@
+# Ingest mode: NATS → OTLP backend
+# Consume telemetry from NATS and forward to observability backends
+#
+# Usage:
+#   helm install otelnats-ingest open-telemetry/opentelemetry-collector -f ingest-values.yaml
+
+image:
+  repository: ghcr.io/mikluko/otelnats-collector
+  tag: latest
+
+mode: deployment
+
+config:
+  receivers:
+    nats:
+      url: nats://nats.nats-system:4222
+      auth:
+        credentials_file: /etc/nats/creds/ingest.creds
+      queue_group: otel-ingest
+      traces:
+        subject: otel.traces
+      metrics:
+        subject: otel.metrics
+      logs:
+        subject: otel.logs
+
+  processors:
+    batch:
+      timeout: 1s
+      send_batch_size: 1000
+
+  exporters:
+    otlp:
+      endpoint: tempo.observability:4317
+      tls:
+        insecure: true
+    otlphttp:
+      endpoint: http://prometheus.observability:9090/api/v1/otlp
+      tls:
+        insecure: true
+
+  extensions:
+    health_check:
+      endpoint: 0.0.0.0:13133
+
+  service:
+    extensions: [health_check]
+    pipelines:
+      traces:
+        receivers: [nats]
+        processors: [batch]
+        exporters: [otlp]
+      metrics:
+        receivers: [nats]
+        processors: [batch]
+        exporters: [otlphttp]
+      logs:
+        receivers: [nats]
+        processors: [batch]
+        exporters: [otlp]
+
+# Mount NATS credentials from secret
+extraVolumes:
+  - name: nats-creds
+    secret:
+      secretName: nats-ingest-creds
+
+extraVolumeMounts:
+  - name: nats-creds
+    mountPath: /etc/nats/creds
+    readOnly: true
