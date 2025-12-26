@@ -20,10 +20,6 @@ type Config struct {
 	// Only applies to core NATS mode (JetStream uses durable consumers).
 	QueueGroup string `mapstructure:"queue_group"`
 
-	// JetStream configuration for at-least-once delivery guarantees.
-	// If not set, uses core NATS (at-most-once delivery).
-	JetStream *JetStreamConfig `mapstructure:"jetstream,omitempty"`
-
 	// Traces configuration.
 	Traces SignalConfig `mapstructure:"traces"`
 
@@ -32,6 +28,26 @@ type Config struct {
 
 	// Logs configuration.
 	Logs SignalConfig `mapstructure:"logs"`
+}
+
+// SignalConfig holds signal-specific receiver configuration.
+type SignalConfig struct {
+	// Subject is the NATS subject to subscribe to.
+	// Supports wildcards: * (single token), > (multi-level).
+	Subject string `mapstructure:"subject"`
+
+	// QueueGroup for load-balanced consumption across receivers.
+	// If empty, messages are broadcast to all subscribers.
+	// Only applies to core NATS mode (JetStream uses durable consumers).
+	QueueGroup string `mapstructure:"queue_group"`
+
+	// Encoding for message deserialization (default: otlp_proto).
+	// Currently only otlp_proto is supported.
+	Encoding string `mapstructure:"encoding"`
+
+	// JetStream configuration for at-least-once delivery guarantees.
+	// If not set, uses core NATS (at-most-once delivery).
+	JetStream *JetStreamConfig `mapstructure:"jetstream,omitempty"`
 }
 
 // JetStreamConfig holds JetStream-specific receiver configuration.
@@ -54,21 +70,6 @@ type JetStreamConfig struct {
 	BacklogSize int `mapstructure:"backlog_size,omitempty"`
 }
 
-// SignalConfig holds signal-specific receiver configuration.
-type SignalConfig struct {
-	// Subject is the NATS subject to subscribe to.
-	// Supports wildcards: * (single token), > (multi-level).
-	Subject string `mapstructure:"subject"`
-
-	// QueueGroup for load-balanced consumption across receivers.
-	// If empty, messages are broadcast to all subscribers.
-	QueueGroup string `mapstructure:"queue_group"`
-
-	// Encoding for message deserialization (default: otlp_proto).
-	// Currently only otlp_proto is supported.
-	Encoding string `mapstructure:"encoding"`
-}
-
 var _ component.Config = (*Config)(nil)
 
 // Validate checks if the configuration is valid.
@@ -80,23 +81,33 @@ func (c *Config) Validate() error {
 	if c.Traces.Subject == "" && c.Metrics.Subject == "" && c.Logs.Subject == "" {
 		return errors.New("at least one signal subject must be configured")
 	}
-	// Validate encoding if specified
-	for _, cfg := range []SignalConfig{c.Traces, c.Metrics, c.Logs} {
+
+	// Validate each signal configuration
+	signals := map[string]SignalConfig{
+		"traces":  c.Traces,
+		"metrics": c.Metrics,
+		"logs":    c.Logs,
+	}
+
+	for name, cfg := range signals {
+		// Validate encoding if specified
 		if cfg.Encoding != "" && cfg.Encoding != defaultEncoding {
 			return errors.New("only otlp_proto encoding is currently supported")
 		}
+
+		// Validate JetStream configuration if enabled for this signal
+		if cfg.JetStream != nil {
+			if cfg.JetStream.Stream == "" {
+				return errors.New(name + ".jetstream.stream is required when jetstream is enabled")
+			}
+			if cfg.JetStream.AckWait < 0 {
+				return errors.New(name + ".jetstream.ack_wait must be non-negative")
+			}
+			if cfg.JetStream.BacklogSize < 0 {
+				return errors.New(name + ".jetstream.backlog_size must be non-negative")
+			}
+		}
 	}
-	// Validate JetStream configuration if enabled
-	if c.JetStream != nil {
-		if c.JetStream.Stream == "" {
-			return errors.New("jetstream.stream is required when jetstream is enabled")
-		}
-		if c.JetStream.AckWait < 0 {
-			return errors.New("jetstream.ack_wait must be non-negative")
-		}
-		if c.JetStream.BacklogSize < 0 {
-			return errors.New("jetstream.backlog_size must be non-negative")
-		}
-	}
+
 	return nil
 }

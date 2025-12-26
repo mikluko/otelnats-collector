@@ -88,49 +88,69 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 		otelnats.WithReceiverErrorHandler(r.handleError),
 	}
 
+	// Determine which signal is enabled and get its configuration
+	var signalConfig *SignalConfig
+	var jsConfig *JetStreamConfig
+
 	// Register handlers and subjects only for enabled signals (where consumer is not nil)
 	if r.tracesConsumer != nil {
+		signalConfig = &r.config.Traces
 		opts = append(opts, otelnats.WithReceiverTracesHandler(r.handleTracesMessage))
 		if r.config.Traces.Subject != "" {
 			opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalTraces, r.config.Traces.Subject))
 		}
+		if r.config.Traces.JetStream != nil {
+			jsConfig = r.config.Traces.JetStream
+		}
 	}
 	if r.metricsConsumer != nil {
+		signalConfig = &r.config.Metrics
 		opts = append(opts, otelnats.WithReceiverMetricsHandler(r.handleMetricsMessage))
 		if r.config.Metrics.Subject != "" {
 			opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalMetrics, r.config.Metrics.Subject))
 		}
+		if r.config.Metrics.JetStream != nil {
+			jsConfig = r.config.Metrics.JetStream
+		}
 	}
 	if r.logsConsumer != nil {
+		signalConfig = &r.config.Logs
 		opts = append(opts, otelnats.WithReceiverLogsHandler(r.handleLogsMessage))
 		if r.config.Logs.Subject != "" {
 			opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalLogs, r.config.Logs.Subject))
 		}
+		if r.config.Logs.JetStream != nil {
+			jsConfig = r.config.Logs.JetStream
+		}
 	}
 
-	// Add mode-specific options
-	if r.config.JetStream != nil {
+	// Add mode-specific options based on signal configuration
+	if jsConfig != nil {
 		// JetStream mode
 		js, err := jetstream.New(conn)
 		if err != nil {
 			return fmt.Errorf("failed to create JetStream context: %w", err)
 		}
 
-		opts = append(opts, otelnats.WithReceiverJetStream(js, r.config.JetStream.Stream))
+		opts = append(opts, otelnats.WithReceiverJetStream(js, jsConfig.Stream))
 
-		if r.config.JetStream.Consumer != "" {
-			opts = append(opts, otelnats.WithReceiverConsumerName(r.config.JetStream.Consumer))
+		if jsConfig.Consumer != "" {
+			opts = append(opts, otelnats.WithReceiverConsumerName(jsConfig.Consumer))
 		}
-		if r.config.JetStream.AckWait > 0 {
-			opts = append(opts, otelnats.WithReceiverAckWait(r.config.JetStream.AckWait))
+		if jsConfig.AckWait > 0 {
+			opts = append(opts, otelnats.WithReceiverAckWait(jsConfig.AckWait))
 		}
-		if r.config.JetStream.BacklogSize > 0 {
-			opts = append(opts, otelnats.WithReceiverBacklogSize(r.config.JetStream.BacklogSize))
+		if jsConfig.BacklogSize > 0 {
+			opts = append(opts, otelnats.WithReceiverBacklogSize(jsConfig.BacklogSize))
 		}
 	} else {
-		// Core NATS mode
-		if r.config.QueueGroup != "" {
-			opts = append(opts, otelnats.WithReceiverQueueGroup(r.config.QueueGroup))
+		// Core NATS mode - use signal-specific queue group if available, otherwise connection-level
+		queueGroup := r.config.QueueGroup
+		if signalConfig != nil && signalConfig.QueueGroup != "" {
+			queueGroup = signalConfig.QueueGroup
+		}
+		if queueGroup != "" {
+			opts = append(opts, otelnats.WithReceiverQueueGroup(queueGroup))
 		}
 	}
 
@@ -146,16 +166,20 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 	}
 
 	// Log startup info
-	if r.config.JetStream != nil {
+	if jsConfig != nil {
 		r.logger.Info("NATS receiver started (JetStream mode)",
 			zap.String("url", r.config.URL),
-			zap.String("stream", r.config.JetStream.Stream),
-			zap.String("consumer", r.config.JetStream.Consumer),
+			zap.String("stream", jsConfig.Stream),
+			zap.String("consumer", jsConfig.Consumer),
 		)
 	} else {
+		queueGroup := r.config.QueueGroup
+		if signalConfig != nil && signalConfig.QueueGroup != "" {
+			queueGroup = signalConfig.QueueGroup
+		}
 		r.logger.Info("NATS receiver started (core NATS mode)",
 			zap.String("url", r.config.URL),
-			zap.String("queue_group", r.config.QueueGroup),
+			zap.String("queue_group", queueGroup),
 		)
 	}
 
