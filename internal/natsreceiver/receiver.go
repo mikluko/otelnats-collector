@@ -2,32 +2,37 @@ package natsreceiver
 
 import (
 	"context"
-	"sync"
+	"errors"
+	"fmt"
 
+	"github.com/mikluko/otelnats"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
-	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/receiver/receiverhelper"
+	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
+	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
+	tracespb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/zap"
 
 	internalnats "github.com/mikluko/otelnats-collector/internal/nats"
 )
 
 type natsReceiver struct {
-	config       *Config
-	signalConfig SignalConfig
-	settings     receiver.Settings
-	logger       *zap.Logger
-	obsrecv      *receiverhelper.ObsReport
+	config   *Config
+	settings receiver.Settings
+	logger   *zap.Logger
+	obsrecv  *receiverhelper.ObsReport
 
-	conn *nats.Conn
-	sub  *nats.Subscription
+	conn        *nats.Conn
+	sdkReceiver otelnats.Receiver
 
+	// Standard pdata unmarshalers (Kafka pattern)
 	tracesUnmarshaler  ptrace.Unmarshaler
 	metricsUnmarshaler pmetric.Unmarshaler
 	logsUnmarshaler    plog.Unmarshaler
@@ -35,14 +40,11 @@ type natsReceiver struct {
 	tracesConsumer  consumer.Traces
 	metricsConsumer consumer.Metrics
 	logsConsumer    consumer.Logs
-
-	shutdownWG sync.WaitGroup
 }
 
 func newNatsReceiver(
 	cfg *Config,
 	set receiver.Settings,
-	signalConfig SignalConfig,
 	tracesConsumer consumer.Traces,
 	metricsConsumer consumer.Metrics,
 	logsConsumer consumer.Logs,
@@ -58,7 +60,6 @@ func newNatsReceiver(
 
 	return &natsReceiver{
 		config:          cfg,
-		signalConfig:    signalConfig,
 		settings:        set,
 		logger:          set.Logger,
 		obsrecv:         obsrecv,
@@ -69,54 +70,106 @@ func newNatsReceiver(
 }
 
 func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
+	// Initialize unmarshalers for bytes→pdata conversion
+	r.tracesUnmarshaler = &ptrace.ProtoUnmarshaler{}
+	r.metricsUnmarshaler = &pmetric.ProtoUnmarshaler{}
+	r.logsUnmarshaler = &plog.ProtoUnmarshaler{}
+
+	// Connect to NATS
 	conn, err := internalnats.Connect(ctx, r.config.ClientConfig, r.logger)
 	if err != nil {
 		return err
 	}
 	r.conn = conn
 
-	// Initialize unmarshalers
-	r.tracesUnmarshaler = &ptrace.ProtoUnmarshaler{}
-	r.metricsUnmarshaler = &pmetric.ProtoUnmarshaler{}
-	r.logsUnmarshaler = &plog.ProtoUnmarshaler{}
+	// Build SDK receiver options (same for both core NATS and JetStream)
+	opts := []otelnats.ReceiverOption{
+		otelnats.WithReceiverBaseContext(context.Background()),
+		otelnats.WithReceiverErrorHandler(r.handleError),
+	}
 
-	// Subscribe with queue group for load balancing
-	var sub *nats.Subscription
-	if r.signalConfig.QueueGroup != "" {
-		sub, err = conn.QueueSubscribe(
-			r.signalConfig.Subject,
-			r.signalConfig.QueueGroup,
-			r.handleMessage,
+	// Set per-signal subjects from config
+	if r.config.Traces.Subject != "" {
+		opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalTraces, r.config.Traces.Subject))
+	}
+	if r.config.Metrics.Subject != "" {
+		opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalMetrics, r.config.Metrics.Subject))
+	}
+	if r.config.Logs.Subject != "" {
+		opts = append(opts, otelnats.WithReceiverSignalSubject(otelnats.SignalLogs, r.config.Logs.Subject))
+	}
+
+	// Register handlers for enabled signals
+	if r.tracesConsumer != nil {
+		opts = append(opts, otelnats.WithReceiverTracesHandler(r.handleTracesMessage))
+	}
+	if r.metricsConsumer != nil {
+		opts = append(opts, otelnats.WithReceiverMetricsHandler(r.handleMetricsMessage))
+	}
+	if r.logsConsumer != nil {
+		opts = append(opts, otelnats.WithReceiverLogsHandler(r.handleLogsMessage))
+	}
+
+	// Add mode-specific options
+	if r.config.JetStream != nil {
+		// JetStream mode
+		js, err := jetstream.New(conn)
+		if err != nil {
+			return fmt.Errorf("failed to create JetStream context: %w", err)
+		}
+
+		opts = append(opts, otelnats.WithReceiverJetStream(js, r.config.JetStream.Stream))
+
+		if r.config.JetStream.Consumer != "" {
+			opts = append(opts, otelnats.WithReceiverConsumerName(r.config.JetStream.Consumer))
+		}
+		if r.config.JetStream.AckWait > 0 {
+			opts = append(opts, otelnats.WithReceiverAckWait(r.config.JetStream.AckWait))
+		}
+		if r.config.JetStream.BacklogSize > 0 {
+			opts = append(opts, otelnats.WithReceiverBacklogSize(r.config.JetStream.BacklogSize))
+		}
+	} else {
+		// Core NATS mode
+		if r.config.QueueGroup != "" {
+			opts = append(opts, otelnats.WithReceiverQueueGroup(r.config.QueueGroup))
+		}
+	}
+
+	// Create and start SDK receiver
+	sdkReceiver, err := otelnats.NewReceiver(conn, opts...)
+	if err != nil {
+		return fmt.Errorf("failed to create SDK receiver: %w", err)
+	}
+	r.sdkReceiver = sdkReceiver
+
+	if err := r.sdkReceiver.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start SDK receiver: %w", err)
+	}
+
+	// Log startup info
+	if r.config.JetStream != nil {
+		r.logger.Info("NATS receiver started (JetStream mode)",
+			zap.String("url", r.config.URL),
+			zap.String("stream", r.config.JetStream.Stream),
+			zap.String("consumer", r.config.JetStream.Consumer),
 		)
 	} else {
-		sub, err = conn.Subscribe(
-			r.signalConfig.Subject,
-			r.handleMessage,
+		r.logger.Info("NATS receiver started (core NATS mode)",
+			zap.String("url", r.config.URL),
+			zap.String("queue_group", r.config.QueueGroup),
 		)
 	}
-	if err != nil {
-		return err
-	}
-	r.sub = sub
 
-	r.logger.Info("NATS receiver started",
-		zap.String("url", r.config.URL),
-		zap.String("subject", r.signalConfig.Subject),
-		zap.String("queue_group", r.signalConfig.QueueGroup),
-	)
 	return nil
 }
 
 func (r *natsReceiver) Shutdown(ctx context.Context) error {
-	if r.sub != nil {
-		// Drain unsubscribes and processes remaining messages
-		if err := r.sub.Drain(); err != nil {
-			r.logger.Warn("error draining subscription", zap.Error(err))
+	if r.sdkReceiver != nil {
+		if err := r.sdkReceiver.Shutdown(ctx); err != nil {
+			return err
 		}
 	}
-
-	// Wait for in-flight message handlers to complete
-	r.shutdownWG.Wait()
 
 	if r.conn != nil {
 		r.conn.Close()
@@ -124,76 +177,103 @@ func (r *natsReceiver) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-func (r *natsReceiver) handleMessage(msg *nats.Msg) {
-	r.shutdownWG.Add(1)
-	defer r.shutdownWG.Done()
+// Message handlers using SDK MessageSignal API (works for both core NATS and JetStream)
 
-	ctx := context.Background()
-
-	r.logger.Debug("received NATS message",
-		zap.String("subject", msg.Subject),
-		zap.Int("size", len(msg.Data)),
-	)
-
-	var err error
-	switch {
-	case r.tracesConsumer != nil:
-		err = r.processTraces(ctx, msg.Data)
-	case r.metricsConsumer != nil:
-		err = r.processMetrics(ctx, msg.Data)
-	case r.logsConsumer != nil:
-		err = r.processLogs(ctx, msg.Data)
-	}
-
-	if err != nil {
-		r.logger.Error("failed to process message",
-			zap.String("subject", msg.Subject),
-			zap.Error(err),
-		)
-	}
-}
-
-func (r *natsReceiver) processTraces(ctx context.Context, data []byte) error {
+func (r *natsReceiver) handleTracesMessage(ctx context.Context, msg otelnats.MessageSignal[tracespb.TracesData]) error {
 	ctx = r.obsrecv.StartTracesOp(ctx)
 
-	traces, err := r.tracesUnmarshaler.UnmarshalTraces(data)
+	// Use msg.Data() to get raw bytes for ProtoUnmarshaler (Kafka pattern)
+	traces, err := r.tracesUnmarshaler.UnmarshalTraces(msg.Data())
 	if err != nil {
-		r.obsrecv.EndTracesOp(ctx, r.signalConfig.Encoding, 0, err)
-		return consumererror.NewPermanent(err)
+		r.obsrecv.EndTracesOp(ctx, "protobuf", 0, err)
+		r.logger.Error("failed to unmarshal traces",
+			zap.String("subject", msg.Subject()),
+			zap.Error(err),
+		)
+		return err
 	}
 
 	spanCount := traces.SpanCount()
 	err = r.tracesConsumer.ConsumeTraces(ctx, traces)
-	r.obsrecv.EndTracesOp(ctx, r.signalConfig.Encoding, spanCount, err)
-	return err
+	r.obsrecv.EndTracesOp(ctx, "protobuf", spanCount, err)
+
+	if err != nil {
+		return receiverError{
+			err:    err,
+			fields: []zap.Field{zap.String("subject", msg.Subject())},
+		}
+	}
+	return nil
 }
 
-func (r *natsReceiver) processMetrics(ctx context.Context, data []byte) error {
+func (r *natsReceiver) handleMetricsMessage(ctx context.Context, msg otelnats.MessageSignal[metricspb.MetricsData]) error {
 	ctx = r.obsrecv.StartMetricsOp(ctx)
 
-	metrics, err := r.metricsUnmarshaler.UnmarshalMetrics(data)
+	// Use msg.Data() to get raw bytes for ProtoUnmarshaler (Kafka pattern)
+	metrics, err := r.metricsUnmarshaler.UnmarshalMetrics(msg.Data())
 	if err != nil {
-		r.obsrecv.EndMetricsOp(ctx, r.signalConfig.Encoding, 0, err)
-		return consumererror.NewPermanent(err)
+		r.obsrecv.EndMetricsOp(ctx, "protobuf", 0, err)
+		r.logger.Error("failed to unmarshal metrics",
+			zap.String("subject", msg.Subject()),
+			zap.Error(err),
+		)
+		return err
 	}
 
 	dataPointCount := metrics.DataPointCount()
 	err = r.metricsConsumer.ConsumeMetrics(ctx, metrics)
-	r.obsrecv.EndMetricsOp(ctx, r.signalConfig.Encoding, dataPointCount, err)
-	return err
+	r.obsrecv.EndMetricsOp(ctx, "protobuf", dataPointCount, err)
+
+	if err != nil {
+		return receiverError{
+			err:    err,
+			fields: []zap.Field{zap.String("subject", msg.Subject())},
+		}
+	}
+	return nil
 }
 
-func (r *natsReceiver) processLogs(ctx context.Context, data []byte) error {
+func (r *natsReceiver) handleLogsMessage(ctx context.Context, msg otelnats.MessageSignal[logspb.LogsData]) error {
 	ctx = r.obsrecv.StartLogsOp(ctx)
 
-	logs, err := r.logsUnmarshaler.UnmarshalLogs(data)
+	// Use msg.Data() to get raw bytes for ProtoUnmarshaler (Kafka pattern)
+	logs, err := r.logsUnmarshaler.UnmarshalLogs(msg.Data())
 	if err != nil {
-		r.obsrecv.EndLogsOp(ctx, r.signalConfig.Encoding, 0, err)
-		return consumererror.NewPermanent(err)
+		r.obsrecv.EndLogsOp(ctx, "protobuf", 0, err)
+		r.logger.Error("failed to unmarshal logs",
+			zap.String("subject", msg.Subject()),
+			zap.Error(err),
+		)
+		return err
 	}
 
 	logCount := logs.LogRecordCount()
 	err = r.logsConsumer.ConsumeLogs(ctx, logs)
-	r.obsrecv.EndLogsOp(ctx, r.signalConfig.Encoding, logCount, err)
-	return err
+	r.obsrecv.EndLogsOp(ctx, "protobuf", logCount, err)
+
+	if err != nil {
+		return receiverError{
+			err:    err,
+			fields: []zap.Field{zap.String("subject", msg.Subject())},
+		}
+	}
+	return nil
+}
+
+func (r *natsReceiver) handleError(err error) {
+	var receiverErr receiverError
+	if errors.As(err, &receiverErr) {
+		r.logger.Error("NATS receiver error", append(receiverErr.fields, zap.Error(err))...)
+	} else {
+		r.logger.Error("NATS receiver error", zap.Error(err))
+	}
+}
+
+type receiverError struct {
+	err    error
+	fields []zap.Field
+}
+
+func (r receiverError) Error() string {
+	return r.err.Error()
 }

@@ -33,20 +33,18 @@ func NewFactory() receiver.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		ClientConfig: internalnats.NewDefaultClientConfig(),
+		QueueGroup:   defaultQueueGroup,
 		Traces: SignalConfig{
-			Subject:    defaultTracesSubject,
-			QueueGroup: defaultQueueGroup,
-			Encoding:   defaultEncoding,
+			Subject:  defaultTracesSubject,
+			Encoding: defaultEncoding,
 		},
 		Metrics: SignalConfig{
-			Subject:    defaultMetricsSubject,
-			QueueGroup: defaultQueueGroup,
-			Encoding:   defaultEncoding,
+			Subject:  defaultMetricsSubject,
+			Encoding: defaultEncoding,
 		},
 		Logs: SignalConfig{
-			Subject:    defaultLogsSubject,
-			QueueGroup: defaultQueueGroup,
-			Encoding:   defaultEncoding,
+			Subject:  defaultLogsSubject,
+			Encoding: defaultEncoding,
 		},
 	}
 }
@@ -58,7 +56,7 @@ func createTracesReceiver(
 	nextConsumer consumer.Traces,
 ) (receiver.Traces, error) {
 	config := cfg.(*Config)
-	return newNatsReceiver(config, set, config.Traces, nextConsumer, nil, nil)
+	return newNatsReceiver(config, set, nextConsumer, nil, nil)
 }
 
 func createMetricsReceiver(
@@ -68,7 +66,7 @@ func createMetricsReceiver(
 	nextConsumer consumer.Metrics,
 ) (receiver.Metrics, error) {
 	config := cfg.(*Config)
-	return newNatsReceiver(config, set, config.Metrics, nil, nextConsumer, nil)
+	return newNatsReceiver(config, set, nil, nextConsumer, nil)
 }
 
 func createLogsReceiver(
@@ -78,5 +76,5 @@ func createLogsReceiver(
 	nextConsumer consumer.Logs,
 ) (receiver.Logs, error) {
 	config := cfg.(*Config)
-	return newNatsReceiver(config, set, config.Logs, nil, nil, nextConsumer)
+	return newNatsReceiver(config, set, nil, nil, nextConsumer)
 }

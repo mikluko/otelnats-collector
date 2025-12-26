@@ -57,7 +57,7 @@ func createTracesExporter(
 	cfg component.Config,
 ) (exporter.Traces, error) {
 	config := cfg.(*Config)
-	exp := newNatsExporter(config, set, signalTraces)
+	exp := newNatsExporter(config, set)
 
 	return exporterhelper.NewTraces(
 		ctx,
@@ -78,7 +78,7 @@ func createMetricsExporter(
 	cfg component.Config,
 ) (exporter.Metrics, error) {
 	config := cfg.(*Config)
-	exp := newNatsExporter(config, set, signalMetrics)
+	exp := newNatsExporter(config, set)
 
 	return exporterhelper.NewMetrics(
 		ctx,
@@ -99,7 +99,7 @@ func createLogsExporter(
 	cfg component.Config,
 ) (exporter.Logs, error) {
 	config := cfg.(*Config)
-	exp := newNatsExporter(config, set, signalLogs)
+	exp := newNatsExporter(config, set)
 
 	return exporterhelper.NewLogs(
 		ctx,

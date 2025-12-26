@@ -3,6 +3,7 @@ module github.com/mikluko/otelnats-collector
 go 1.25.5
 
 require (
+	github.com/mikluko/otelnats v0.7.0
 	github.com/nats-io/nats-server/v2 v2.12.3
 	github.com/nats-io/nats.go v1.48.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.142.0
@@ -38,6 +39,7 @@ require (
 	go.opentelemetry.io/collector/receiver/receiverhelper v0.142.0
 	go.opentelemetry.io/collector/receiver/receivertest v0.142.0
 	go.opentelemetry.io/collector/service v0.142.0
+	go.opentelemetry.io/proto/otlp v1.9.0
 	go.uber.org/zap v1.27.1
 )
 
@@ -59,7 +61,6 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/go-tpm v0.9.7 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/hashicorp/go-version v1.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -162,8 +163,6 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.15.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.39.0 // indirect
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mikluko/otelnats"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,12 +57,20 @@ func TestE2E_ReceiveTraces(t *testing.T) {
 	span.SetTraceID([16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})
 	span.SetSpanID([8]byte{1, 2, 3, 4, 5, 6, 7, 8})
 
-	// Marshal and publish
+	// Marshal and publish with SDK headers
 	marshaler := &ptrace.ProtoMarshaler{}
 	data, err := marshaler.MarshalTraces(traces)
 	require.NoError(t, err)
 
-	err = nc.Publish("test.traces", data)
+	// Add otelnats protocol headers for SDK receiver
+	headers := otelnats.BuildHeaders(ctx, otelnats.SignalTraces, otelnats.EncodingProtobuf, nil)
+	msg := &nats.Msg{
+		Subject: "test.traces",
+		Data:    data,
+		Header:  headers,
+	}
+
+	err = nc.PublishMsg(msg)
 	require.NoError(t, err)
 	nc.Flush()
 
@@ -113,7 +122,15 @@ func TestE2E_ReceiveMetrics(t *testing.T) {
 	data, err := marshaler.MarshalMetrics(metrics)
 	require.NoError(t, err)
 
-	err = nc.Publish("test.metrics", data)
+	// Add otelnats protocol headers for SDK receiver
+	headers := otelnats.BuildHeaders(ctx, otelnats.SignalMetrics, otelnats.EncodingProtobuf, nil)
+	msg := &nats.Msg{
+		Subject: "test.metrics",
+		Data:    data,
+		Header:  headers,
+	}
+
+	err = nc.PublishMsg(msg)
 	require.NoError(t, err)
 	nc.Flush()
 
@@ -162,7 +179,15 @@ func TestE2E_ReceiveLogs(t *testing.T) {
 	data, err := marshaler.MarshalLogs(logs)
 	require.NoError(t, err)
 
-	err = nc.Publish("test.logs", data)
+	// Add otelnats protocol headers for SDK receiver
+	headers := otelnats.BuildHeaders(ctx, otelnats.SignalLogs, otelnats.EncodingProtobuf, nil)
+	msg := &nats.Msg{
+		Subject: "test.logs",
+		Data:    data,
+		Header:  headers,
+	}
+
+	err = nc.PublishMsg(msg)
 	require.NoError(t, err)
 	nc.Flush()
 
