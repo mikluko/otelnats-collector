@@ -68,18 +68,9 @@ jobs:
           KO_DOCKER_REPO: ghcr.io/${{ github.repository }}
           GOFLAGS: -ldflags=-X=main.version=${{ steps.version.outputs.version }}
 
-      - name: Build and push Helm chart
-        run: |
-          helm package deploy/helm/otelnats-collector \
-            --version ${{ steps.version.outputs.version }} \
-            --app-version ${{ steps.version.outputs.version }}
-          helm push otelnats-collector-${{ steps.version.outputs.version }}.tgz \
-            oci://ghcr.io/${{ github.repository_owner }}/helm-charts
-
       - name: Summary
         run: |
           cat >> $GITHUB_STEP_SUMMARY << EOF
           ### Artifacts
           - **Image:** \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}\`
-          - **Chart:** \`oci://ghcr.io/${{ github.repository_owner }}/helm-charts/otelnats-collector:${{ steps.version.outputs.version }}\`
           EOF
