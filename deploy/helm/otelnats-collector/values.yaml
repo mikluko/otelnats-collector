@@ -10,20 +10,20 @@ image:
   pullPolicy: IfNotPresent
   tag: ""
 
-imagePullSecrets: []
+imagePullSecrets: [ ]
 nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
   create: true
   automount: true
-  annotations: {}
+  annotations: { }
   name: ""
 
-podAnnotations: {}
-podLabels: {}
+podAnnotations: { }
+podLabels: { }
 
-podSecurityContext: {}
+podSecurityContext: { }
 
 securityContext:
   capabilities:
@@ -48,11 +48,11 @@ resources:
     cpu: 100m
     memory: 128Mi
 
-nodeSelector: {}
+nodeSelector: { }
 
-tolerations: []
+tolerations: [ ]
 
-affinity: {}
+affinity: { }
 
 # Topology spread constraints for distributing pods across nodes/zones
 # Example: spread pods evenly across zones and nodes
@@ -69,7 +69,7 @@ affinity: {}
 #     labelSelector:
 #       matchLabels:
 #         app.kubernetes.io/name: otelnats-collector
-topologySpreadConstraints: []
+topologySpreadConstraints: [ ]
 
 # Horizontal Pod Autoscaler settings
 autoscaling:
@@ -102,14 +102,27 @@ podDisruptionBudget:
 # NATS connection settings
 nats:
   url: nats://nats:4222
+  # Queue group for load balancing across multiple receiver instances
+  # Only used when JetStream is disabled
+  queueGroup: otel-collectors
+  # JetStream configuration (optional)
+  # When enabled, provides at-least-once delivery guarantees
+  jetstream:
+    enabled: false
+    stream: OTEL
+    consumer: otel
+    # Optional: ack wait timeout for JetStream messages
+    ackWait: 30s
+    # Optional: backlog size for JetStream consumer
+    backlogSize: 100
   auth:
-    # Uncomment and configure the auth method you need:
-    # userInfo:
-    #   username: ""
-    #   password: ""
-    # token: ""
-    # nkeyFile: ""
-    # credentialsFile: ""
+  # Uncomment and configure the auth method you need:
+  # userInfo:
+  #   username: ""
+  #   password: ""
+  # token: ""
+  # nkeyFile: ""
+  # credentialsFile: ""
 
 # Gateway mode settings (OTLP -> NATS)
 gateway:
@@ -130,26 +143,13 @@ gateway:
 
 # Ingest mode settings (NATS -> backend)
 ingest:
-  # JetStream configuration (optional)
-  # If enabled, uses JetStream consumers instead of queue groups for at-least-once delivery
-  jetstream:
-    enabled: false
-    stream: OTEL_TELEMETRY
-    consumer: otel-collector
-    # Optional: ack wait timeout for JetStream messages
-    ackWait: 30s
-    # Optional: backlog size for JetStream consumer
-    backlogSize: 100
-  # Subjects and queue groups for each signal type (queue groups only used when JetStream disabled)
+  # Subjects for each signal type
   traces:
     subject: otel.traces
-    queueGroup: otel-traces-ingest
   metrics:
     subject: otel.metrics
-    queueGroup: otel-metrics-ingest
   logs:
     subject: otel.logs
-    queueGroup: otel-logs-ingest
   # Backend export settings
   backend:
     # OTLP gRPC endpoint (for traces/logs)
@@ -180,7 +180,7 @@ telemetry:
     level: normal
 
 # Additional config to merge (raw YAML)
-extraConfig: {}
+extraConfig: { }
 
 # Extra volumes to mount (for secrets, configmaps, etc.)
 # Example:
@@ -188,7 +188,7 @@ extraConfig: {}
 #     - name: nats-creds
 #       secret:
 #         secretName: nats-credentials
-extraVolumes: []
+extraVolumes: [ ]
 
 # Extra volume mounts for the collector container
 # Example:
@@ -196,4 +196,4 @@ extraVolumes: []
 #     - name: nats-creds
 #       mountPath: /etc/nats
 #       readOnly: true
-extraVolumeMounts: []
+extraVolumeMounts: [ ]
