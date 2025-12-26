@@ -182,12 +182,24 @@ func (r *natsReceiver) Shutdown(ctx context.Context) error {
 func (r *natsReceiver) handleTracesMessage(ctx context.Context, msg otelnats.MessageSignal[tracespb.TracesData]) error {
 	ctx = r.obsrecv.StartTracesOp(ctx)
 
-	// Use msg.Data() to get raw bytes for ProtoUnmarshaler (Kafka pattern)
-	traces, err := r.tracesUnmarshaler.UnmarshalTraces(msg.Data())
+	// Choose unmarshaler based on Content-Type header
+	contentType := msg.Headers().Get(otelnats.HeaderContentType)
+	var traces ptrace.Traces
+	var err error
+
+	if contentType == otelnats.ContentTypeJSON {
+		unmarshaler := &ptrace.JSONUnmarshaler{}
+		traces, err = unmarshaler.UnmarshalTraces(msg.Data())
+	} else {
+		// Default to protobuf (application/x-protobuf or empty)
+		traces, err = r.tracesUnmarshaler.UnmarshalTraces(msg.Data())
+	}
+
 	if err != nil {
-		r.obsrecv.EndTracesOp(ctx, "protobuf", 0, err)
+		r.obsrecv.EndTracesOp(ctx, contentType, 0, err)
 		r.logger.Error("failed to unmarshal traces",
 			zap.String("subject", msg.Subject()),
+			zap.String("content_type", contentType),
 			zap.Error(err),
 		)
 		return err
@@ -195,7 +207,7 @@ func (r *natsReceiver) handleTracesMessage(ctx context.Context, msg otelnats.Mes
 
 	spanCount := traces.SpanCount()
 	err = r.tracesConsumer.ConsumeTraces(ctx, traces)
-	r.obsrecv.EndTracesOp(ctx, "protobuf", spanCount, err)
+	r.obsrecv.EndTracesOp(ctx, contentType, spanCount, err)
 
 	if err != nil {
 		return receiverError{
@@ -209,12 +221,24 @@ func (r *natsReceiver) handleTracesMessage(ctx context.Context, msg otelnats.Mes
 func (r *natsReceiver) handleMetricsMessage(ctx context.Context, msg otelnats.MessageSignal[metricspb.MetricsData]) error {
 	ctx = r.obsrecv.StartMetricsOp(ctx)
 
-	// Use msg.Data() to get raw bytes for ProtoUnmarshaler (Kafka pattern)
-	metrics, err := r.metricsUnmarshaler.UnmarshalMetrics(msg.Data())
+	// Choose unmarshaler based on Content-Type header
+	contentType := msg.Headers().Get(otelnats.HeaderContentType)
+	var metrics pmetric.Metrics
+	var err error
+
+	if contentType == otelnats.ContentTypeJSON {
+		unmarshaler := &pmetric.JSONUnmarshaler{}
+		metrics, err = unmarshaler.UnmarshalMetrics(msg.Data())
+	} else {
+		// Default to protobuf (application/x-protobuf or empty)
+		metrics, err = r.metricsUnmarshaler.UnmarshalMetrics(msg.Data())
+	}
+
 	if err != nil {
-		r.obsrecv.EndMetricsOp(ctx, "protobuf", 0, err)
+		r.obsrecv.EndMetricsOp(ctx, contentType, 0, err)
 		r.logger.Error("failed to unmarshal metrics",
 			zap.String("subject", msg.Subject()),
+			zap.String("content_type", contentType),
 			zap.Error(err),
 		)
 		return err
@@ -222,7 +246,7 @@ func (r *natsReceiver) handleMetricsMessage(ctx context.Context, msg otelnats.Me
 
 	dataPointCount := metrics.DataPointCount()
 	err = r.metricsConsumer.ConsumeMetrics(ctx, metrics)
-	r.obsrecv.EndMetricsOp(ctx, "protobuf", dataPointCount, err)
+	r.obsrecv.EndMetricsOp(ctx, contentType, dataPointCount, err)
 
 	if err != nil {
 		return receiverError{
@@ -236,12 +260,24 @@ func (r *natsReceiver) handleMetricsMessage(ctx context.Context, msg otelnats.Me
 func (r *natsReceiver) handleLogsMessage(ctx context.Context, msg otelnats.MessageSignal[logspb.LogsData]) error {
 	ctx = r.obsrecv.StartLogsOp(ctx)
 
-	// Use msg.Data() to get raw bytes for ProtoUnmarshaler (Kafka pattern)
-	logs, err := r.logsUnmarshaler.UnmarshalLogs(msg.Data())
+	// Choose unmarshaler based on Content-Type header
+	contentType := msg.Headers().Get(otelnats.HeaderContentType)
+	var logs plog.Logs
+	var err error
+
+	if contentType == otelnats.ContentTypeJSON {
+		unmarshaler := &plog.JSONUnmarshaler{}
+		logs, err = unmarshaler.UnmarshalLogs(msg.Data())
+	} else {
+		// Default to protobuf (application/x-protobuf or empty)
+		logs, err = r.logsUnmarshaler.UnmarshalLogs(msg.Data())
+	}
+
 	if err != nil {
-		r.obsrecv.EndLogsOp(ctx, "protobuf", 0, err)
+		r.obsrecv.EndLogsOp(ctx, contentType, 0, err)
 		r.logger.Error("failed to unmarshal logs",
 			zap.String("subject", msg.Subject()),
+			zap.String("content_type", contentType),
 			zap.Error(err),
 		)
 		return err
@@ -249,7 +285,7 @@ func (r *natsReceiver) handleLogsMessage(ctx context.Context, msg otelnats.Messa
 
 	logCount := logs.LogRecordCount()
 	err = r.logsConsumer.ConsumeLogs(ctx, logs)
-	r.obsrecv.EndLogsOp(ctx, "protobuf", logCount, err)
+	r.obsrecv.EndLogsOp(ctx, contentType, logCount, err)
 
 	if err != nil {
 		return receiverError{
