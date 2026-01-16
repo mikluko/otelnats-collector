@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
@@ -19,6 +20,7 @@ import (
 	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	tracespb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	internalnats "github.com/mikluko/otelnats-collector/internal/nats"
 )
@@ -28,6 +30,8 @@ type natsReceiver struct {
 	settings receiver.Settings
 	logger   *zap.Logger
 	obsrecv  *receiverhelper.ObsReport
+
+	downstreamErrLevel zapcore.Level
 
 	conn        *nats.Conn
 	sdkReceiver otelnats.Receiver
@@ -127,6 +131,9 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 	// Add mode-specific options based on signal configuration
 	if jsConfig != nil {
 		// JetStream mode
+
+		r.downstreamErrLevel = zap.WarnLevel
+
 		js, err := jetstream.New(conn)
 		if err != nil {
 			return fmt.Errorf("failed to create JetStream context: %w", err)
@@ -145,6 +152,9 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 		}
 	} else {
 		// Core NATS mode - use signal-specific queue group if available, otherwise connection-level
+
+		r.downstreamErrLevel = zap.ErrorLevel
+
 		queueGroup := r.config.QueueGroup
 		if signalConfig != nil && signalConfig.QueueGroup != "" {
 			queueGroup = signalConfig.QueueGroup
@@ -319,12 +329,16 @@ func (r *natsReceiver) handleLogsMessage(ctx context.Context, msg otelnats.Messa
 }
 
 func (r *natsReceiver) handleError(err error) {
-	var receiverErr receiverError
-	if errors.As(err, &receiverErr) {
-		r.logger.Error("NATS receiver error", append(receiverErr.fields, zap.Error(err))...)
-	} else {
-		r.logger.Error("NATS receiver error", zap.Error(err))
+	level := zap.ErrorLevel
+	fields := []zap.Field{zap.Error(err)}
+	var errObj receiverError
+	if errors.As(err, &errObj) {
+		fields = append(fields, errObj.fields...)
 	}
+	if consumererror.IsDownstream(err) {
+		level = r.downstreamErrLevel
+	}
+	r.logger.Log(level, "NATS receiver error", fields...)
 }
 
 type receiverError struct {
