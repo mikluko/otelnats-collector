@@ -25,10 +25,6 @@ type Config struct {
 
 	// Logs configuration.
 	Logs SignalConfig `mapstructure:"logs"`
-
-	// SubjectFromAttribute extracts subject from a resource attribute.
-	// If set, the value of this attribute will be used as the subject.
-	SubjectFromAttribute string `mapstructure:"subject_from_attribute,omitempty"`
 }
 
 // SignalConfig holds signal-specific configuration.
@@ -68,9 +64,9 @@ func (c *Config) Validate() error {
 	}
 
 	for name, cfg := range signals {
-		// Validate subject format if configured
+		// Validate subject format if configured (no wildcards allowed for publishing)
 		if cfg.Subject != "" {
-			if err := internalnats.ValidateSubject(cfg.Subject); err != nil {
+			if err := internalnats.ValidatePublishSubject(cfg.Subject); err != nil {
 				return errors.New(name + ".subject: " + err.Error())
 			}
 		}

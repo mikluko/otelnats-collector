@@ -113,12 +113,28 @@ func ValidateURL(rawURL string) error {
 var subjectRegex = regexp.MustCompile(`^[a-zA-Z0-9._*>-]+$`)
 
 // ValidateSubject checks that a subject string is valid for NATS.
+// Allows wildcards (* and >) for subscription subjects.
 func ValidateSubject(subject string) error {
 	if subject == "" {
 		return errors.New("subject cannot be empty")
 	}
 	if !subjectRegex.MatchString(subject) {
 		return errors.New("subject contains invalid characters")
+	}
+	return nil
+}
+
+// ValidatePublishSubject checks that a subject is valid for publishing.
+// Unlike ValidateSubject, this disallows wildcards since you cannot
+// publish to wildcard subjects in NATS.
+func ValidatePublishSubject(subject string) error {
+	if err := ValidateSubject(subject); err != nil {
+		return err
+	}
+	for _, c := range subject {
+		if c == '*' || c == '>' {
+			return errors.New("publish subject cannot contain wildcards")
+		}
 	}
 	return nil
 }

@@ -83,6 +83,10 @@ func newNatsReceiver(
 }
 
 func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	// Connect to NATS
 	conn, err := internalnats.Connect(ctx, r.config.ClientConfig, r.logger)
 	if err != nil {
