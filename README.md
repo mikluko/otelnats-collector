@@ -21,7 +21,7 @@ Rather than wait indefinitely for sponsorship, this project delivers NATS integr
 - **NATS Receiver**: Ingest telemetry data (traces, metrics, logs) from NATS subjects
 - **NATS Exporter**: Stream telemetry data to NATS subjects
 - **Standard OTel Ecosystem**: Full compatibility with OpenTelemetry Collector processors, exporters, and extensions
-- **Production Ready**: Includes Kubernetes Helm chart with HPA, PDB, and topology spread constraints
+- **Production Ready**: Deploys via official OpenTelemetry Collector Helm chart with custom image
 
 ## Components
 

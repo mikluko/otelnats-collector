@@ -1,4 +1,4 @@
-.PHONY: build test lint clean tidy helm-lint helm-test
+.PHONY: build test lint clean tidy run help
 
 # Build variables
 BINARY_NAME := otelnats-collector
@@ -33,17 +33,6 @@ clean:
 ## run: Run the collector with example config
 run: build
 	$(BUILD_DIR)/$(BINARY_NAME) --config examples/gateway/config.yaml
-
-# Helm variables
-HELM_CHART := deploy/helm/otelnats-collector
-
-## helm-lint: Lint the Helm chart
-helm-lint:
-	helm lint $(HELM_CHART)
-
-## helm-test: Run Helm chart unit tests
-helm-test:
-	helm unittest $(HELM_CHART)
 
 ## help: Show this help message
 help:

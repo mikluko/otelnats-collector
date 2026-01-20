@@ -36,8 +36,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: azure/setup-helm@v4
-
       - uses: ko-build/setup-ko@v0.9
 
       - name: Login to GHCR
