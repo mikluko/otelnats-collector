@@ -64,10 +64,10 @@ func authOptions(auth AuthConfig) ([]nats.Option, error) {
 	var opts []nats.Option
 
 	if auth.UserInfo != nil {
-		opts = append(opts, nats.UserInfo(auth.UserInfo.Username, auth.UserInfo.Password))
+		opts = append(opts, nats.UserInfo(auth.UserInfo.Username, string(auth.UserInfo.Password)))
 	}
 	if auth.Token != "" {
-		opts = append(opts, nats.Token(auth.Token))
+		opts = append(opts, nats.Token(string(auth.Token)))
 	}
 	if auth.NKeyFile != "" {
 		opt, err := nats.NkeyOptionFromSeed(auth.NKeyFile)

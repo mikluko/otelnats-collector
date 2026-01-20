@@ -5,6 +5,7 @@ package nats
 import (
 	"time"
 
+	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/config/configtls"
 )
 
@@ -39,7 +40,7 @@ type AuthConfig struct {
 	UserInfo *UserInfoAuth `mapstructure:"user_info,omitempty"`
 
 	// Token authentication.
-	Token string `mapstructure:"token,omitempty"`
+	Token configopaque.String `mapstructure:"token,omitempty"`
 
 	// NKeyFile is the path to the NKey seed file.
 	NKeyFile string `mapstructure:"nkey_file,omitempty"`
@@ -50,8 +51,8 @@ type AuthConfig struct {
 
 // UserInfoAuth holds username/password authentication.
 type UserInfoAuth struct {
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+	Username string                `mapstructure:"username"`
+	Password configopaque.String   `mapstructure:"password"`
 }
 
 // NewDefaultClientConfig returns ClientConfig with sensible defaults.
