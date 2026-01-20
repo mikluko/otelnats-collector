@@ -63,22 +63,20 @@ func newNatsReceiver(
 	}
 
 	return &natsReceiver{
-		config:          cfg,
-		settings:        set,
-		logger:          set.Logger,
-		obsrecv:         obsrecv,
-		tracesConsumer:  tracesConsumer,
-		metricsConsumer: metricsConsumer,
-		logsConsumer:    logsConsumer,
+		config:             cfg,
+		settings:           set,
+		logger:             set.Logger,
+		obsrecv:            obsrecv,
+		tracesConsumer:     tracesConsumer,
+		metricsConsumer:    metricsConsumer,
+		logsConsumer:       logsConsumer,
+		tracesUnmarshaler:  &ptrace.ProtoUnmarshaler{},
+		metricsUnmarshaler: &pmetric.ProtoUnmarshaler{},
+		logsUnmarshaler:    &plog.ProtoUnmarshaler{},
 	}, nil
 }
 
 func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
-	// Initialize unmarshalers for bytes→pdata conversion
-	r.tracesUnmarshaler = &ptrace.ProtoUnmarshaler{}
-	r.metricsUnmarshaler = &pmetric.ProtoUnmarshaler{}
-	r.logsUnmarshaler = &plog.ProtoUnmarshaler{}
-
 	// Connect to NATS
 	conn, err := internalnats.Connect(ctx, r.config.ClientConfig, r.logger)
 	if err != nil {
