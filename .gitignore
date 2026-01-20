@@ -2,6 +2,7 @@
 !.github/
 !.gitignore
 !.gitattributes
+!.golangci.yaml
 !.goreleaser.yaml
 
 # Build output

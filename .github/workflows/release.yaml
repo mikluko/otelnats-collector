@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         run: make test
 
-  release:
+  build:
     needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
