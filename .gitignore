@@ -1,0 +1,12 @@
+.*
+!.github/
+!.gitignore
+!.gitattributes
+!.golangci.yaml
+!.goreleaser.yaml
+
+# Build output
+/bin/
+
+# Backup files
+*.bak

@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      exclude-functions:
+        # Cleanup functions in defer - errors not actionable
+        - (*github.com/nats-io/nats.go.Subscription).Unsubscribe
+        - (*github.com/nats-io/nats.go.Conn).Flush
+        # OTel component Shutdown - cleanup in tests
+        - (go.opentelemetry.io/collector/receiver.Traces).Shutdown
+        - (go.opentelemetry.io/collector/receiver.Metrics).Shutdown
+        - (go.opentelemetry.io/collector/receiver.Logs).Shutdown
+        - (go.opentelemetry.io/collector/exporter.Traces).Shutdown
+        - (go.opentelemetry.io/collector/exporter.Metrics).Shutdown
+        - (go.opentelemetry.io/collector/exporter.Logs).Shutdown
+    staticcheck:
+      checks:
+        - "all"
+        - "-QF1008"  # embedded field selector style is fine
+        - "-ST1000"  # package comments not required

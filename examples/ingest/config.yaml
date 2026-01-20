@@ -1,0 +1,64 @@
+# Ingest Configuration
+# Receives telemetry from NATS and exports to backend systems
+#
+# Use case: Central ingest collectors that consume from NATS and
+# forward to observability backends (e.g., Tempo, VictoriaMetrics).
+
+receivers:
+  nats:
+    url: nats://nats.example.com:4222
+    # auth:
+    #   user_info:
+    #     username: otel
+    #     password: ${env:NATS_PASSWORD}
+    traces:
+      subject: "otel.traces"
+      queue_group: otel-traces-ingest
+    metrics:
+      subject: "otel.metrics"
+      queue_group: otel-metrics-ingest
+    logs:
+      subject: "otel.logs"
+      queue_group: otel-logs-ingest
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 5000
+
+exporters:
+  # Export to OTLP-compatible backend
+  otlp:
+    endpoint: tempo-distributor:4317
+    tls:
+      insecure: true
+
+  otlphttp:
+    endpoint: http://victoriametrics:8428/opentelemetry
+    tls:
+      insecure: true
+
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [nats]
+      processors: [batch]
+      exporters: [otlp]
+    metrics:
+      receivers: [nats]
+      processors: [batch]
+      exporters: [otlphttp]
+    logs:
+      receivers: [nats]
+      processors: [batch]
+      exporters: [otlp]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: normal
