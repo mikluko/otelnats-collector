@@ -3,6 +3,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
@@ -53,11 +54,21 @@ func Connect(ctx context.Context, cfg ClientConfig, logger *zap.Logger) (*nats.C
 	}
 
 	logger.Info("Connected to NATS",
-		zap.String("url", conn.ConnectedUrl()),
+		zap.String("url", redactURL(conn.ConnectedUrl())),
 		zap.String("server_id", conn.ConnectedServerId()),
 	)
 
 	return conn, nil
+}
+
+// redactURL removes credentials from a URL for safe logging.
+func redactURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	u.User = nil
+	return u.String()
 }
 
 func authOptions(auth AuthConfig) ([]nats.Option, error) {

@@ -74,9 +74,14 @@ var _ component.Config = (*Config)(nil)
 
 // Validate checks if the configuration is valid.
 func (c *Config) Validate() error {
-	if c.ClientConfig.URL == "" {
-		return errors.New("url is required")
+	if err := internalnats.ValidateURL(c.ClientConfig.URL); err != nil {
+		return err
 	}
+
+	if err := c.ClientConfig.Auth.Validate(); err != nil {
+		return err
+	}
+
 	// At least one signal must be configured with a subject
 	if c.Traces.Subject == "" && c.Metrics.Subject == "" && c.Logs.Subject == "" {
 		return errors.New("at least one signal subject must be configured")
@@ -90,6 +95,13 @@ func (c *Config) Validate() error {
 	}
 
 	for name, cfg := range signals {
+		// Validate subject format if configured
+		if cfg.Subject != "" {
+			if err := internalnats.ValidateSubject(cfg.Subject); err != nil {
+				return errors.New(name + ".subject: " + err.Error())
+			}
+		}
+
 		// Validate encoding if specified
 		if cfg.Encoding != "" && cfg.Encoding != defaultEncoding {
 			return errors.New("only otlp_proto encoding is currently supported")

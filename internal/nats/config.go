@@ -3,6 +3,9 @@
 package nats
 
 import (
+	"errors"
+	"net/url"
+	"regexp"
 	"time"
 
 	"go.opentelemetry.io/collector/config/configopaque"
@@ -63,4 +66,59 @@ func NewDefaultClientConfig() ClientConfig {
 		ReconnectWait:     2 * time.Second,
 		MaxReconnects:     -1, // unlimited
 	}
+}
+
+// Validate checks that the AuthConfig is valid.
+// Only one authentication method can be configured at a time.
+func (c *AuthConfig) Validate() error {
+	count := 0
+	if c.UserInfo != nil {
+		count++
+	}
+	if c.Token != "" {
+		count++
+	}
+	if c.NKeyFile != "" {
+		count++
+	}
+	if c.CredentialsFile != "" {
+		count++
+	}
+	if count > 1 {
+		return errors.New("only one authentication method can be configured")
+	}
+	return nil
+}
+
+// ValidateURL checks that the URL is a valid NATS URL.
+func ValidateURL(rawURL string) error {
+	if rawURL == "" {
+		return errors.New("url is required")
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return errors.New("invalid url format")
+	}
+	if u.Scheme != "nats" && u.Scheme != "tls" && u.Scheme != "nats+tls" {
+		return errors.New("url scheme must be nats, tls, or nats+tls")
+	}
+	if u.Host == "" {
+		return errors.New("url must contain a host")
+	}
+	return nil
+}
+
+// subjectRegex validates NATS subject format.
+// Allows alphanumeric, dots, dashes, underscores, and wildcards (* and >).
+var subjectRegex = regexp.MustCompile(`^[a-zA-Z0-9._*>-]+$`)
+
+// ValidateSubject checks that a subject string is valid for NATS.
+func ValidateSubject(subject string) error {
+	if subject == "" {
+		return errors.New("subject cannot be empty")
+	}
+	if !subjectRegex.MatchString(subject) {
+		return errors.New("subject contains invalid characters")
+	}
+	return nil
 }

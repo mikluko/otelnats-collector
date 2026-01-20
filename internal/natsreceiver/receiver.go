@@ -37,9 +37,12 @@ type natsReceiver struct {
 	sdkReceiver otelnats.Receiver
 
 	// Standard pdata unmarshalers (Kafka pattern)
-	tracesUnmarshaler  ptrace.Unmarshaler
-	metricsUnmarshaler pmetric.Unmarshaler
-	logsUnmarshaler    plog.Unmarshaler
+	tracesUnmarshaler      ptrace.Unmarshaler
+	metricsUnmarshaler     pmetric.Unmarshaler
+	logsUnmarshaler        plog.Unmarshaler
+	tracesJSONUnmarshaler  ptrace.Unmarshaler
+	metricsJSONUnmarshaler pmetric.Unmarshaler
+	logsJSONUnmarshaler    plog.Unmarshaler
 
 	tracesConsumer  consumer.Traces
 	metricsConsumer consumer.Metrics
@@ -63,16 +66,19 @@ func newNatsReceiver(
 	}
 
 	return &natsReceiver{
-		config:             cfg,
-		settings:           set,
-		logger:             set.Logger,
-		obsrecv:            obsrecv,
-		tracesConsumer:     tracesConsumer,
-		metricsConsumer:    metricsConsumer,
-		logsConsumer:       logsConsumer,
-		tracesUnmarshaler:  &ptrace.ProtoUnmarshaler{},
-		metricsUnmarshaler: &pmetric.ProtoUnmarshaler{},
-		logsUnmarshaler:    &plog.ProtoUnmarshaler{},
+		config:                 cfg,
+		settings:               set,
+		logger:                 set.Logger,
+		obsrecv:                obsrecv,
+		tracesConsumer:         tracesConsumer,
+		metricsConsumer:        metricsConsumer,
+		logsConsumer:           logsConsumer,
+		tracesUnmarshaler:      &ptrace.ProtoUnmarshaler{},
+		metricsUnmarshaler:     &pmetric.ProtoUnmarshaler{},
+		logsUnmarshaler:        &plog.ProtoUnmarshaler{},
+		tracesJSONUnmarshaler:  &ptrace.JSONUnmarshaler{},
+		metricsJSONUnmarshaler: &pmetric.JSONUnmarshaler{},
+		logsJSONUnmarshaler:    &plog.JSONUnmarshaler{},
 	}, nil
 }
 
@@ -218,8 +224,7 @@ func (r *natsReceiver) handleTracesMessage(ctx context.Context, msg otelnats.Mes
 	var err error
 
 	if contentType == otelnats.ContentTypeJSON {
-		unmarshaler := &ptrace.JSONUnmarshaler{}
-		traces, err = unmarshaler.UnmarshalTraces(msg.Data())
+		traces, err = r.tracesJSONUnmarshaler.UnmarshalTraces(msg.Data())
 	} else {
 		// Default to protobuf (application/x-protobuf or empty)
 		traces, err = r.tracesUnmarshaler.UnmarshalTraces(msg.Data())
@@ -257,8 +262,7 @@ func (r *natsReceiver) handleMetricsMessage(ctx context.Context, msg otelnats.Me
 	var err error
 
 	if contentType == otelnats.ContentTypeJSON {
-		unmarshaler := &pmetric.JSONUnmarshaler{}
-		metrics, err = unmarshaler.UnmarshalMetrics(msg.Data())
+		metrics, err = r.metricsJSONUnmarshaler.UnmarshalMetrics(msg.Data())
 	} else {
 		// Default to protobuf (application/x-protobuf or empty)
 		metrics, err = r.metricsUnmarshaler.UnmarshalMetrics(msg.Data())
@@ -296,8 +300,7 @@ func (r *natsReceiver) handleLogsMessage(ctx context.Context, msg otelnats.Messa
 	var err error
 
 	if contentType == otelnats.ContentTypeJSON {
-		unmarshaler := &plog.JSONUnmarshaler{}
-		logs, err = unmarshaler.UnmarshalLogs(msg.Data())
+		logs, err = r.logsJSONUnmarshaler.UnmarshalLogs(msg.Data())
 	} else {
 		// Default to protobuf (application/x-protobuf or empty)
 		logs, err = r.logsUnmarshaler.UnmarshalLogs(msg.Data())
