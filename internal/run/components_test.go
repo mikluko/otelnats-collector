@@ -54,7 +54,7 @@ func TestComponents_AllExpectedProcessors(t *testing.T) {
 	factories, err := components()
 	require.NoError(t, err)
 
-	expectedProcessors := []string{"batch", "memory_limiter"}
+	expectedProcessors := []string{"batch", "memory_limiter", "transform"}
 	for _, proc := range expectedProcessors {
 		_, ok := factories.Processors[component.MustNewType(proc)]
 		assert.True(t, ok, "processor %s should be registered", proc)
