@@ -1,0 +1,271 @@
+# DaemonSet mode: Prometheus scraping + Log collection → NATS
+# Collects metrics and logs directly from Kubernetes nodes
+#
+# Usage:
+#   helm install otelnats-daemonset open-telemetry/opentelemetry-collector -f daemonset-values.yaml
+#
+# Prerequisites:
+#   - Create NATS credentials secret: kubectl create secret generic nats-daemonset-creds --from-file=daemonset.creds
+#   - Set CLUSTER_NAME to your cluster identifier (used in NATS subject namespacing)
+
+image:
+  repository: ghcr.io/mikluko/otelnats-collector
+  tag: latest
+
+mode: daemonset
+
+# IMPORTANT: Set CLUSTER_NAME to identify this cluster in NATS subjects
+# Example subjects: otel.metrics.production, otel.logs.staging
+extraEnvs:
+  - name: CLUSTER_NAME
+    value: my-cluster  # Change this to your cluster name
+  - name: K8S_NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+
+config:
+  receivers:
+    prometheus:
+      config:
+        scrape_configs:
+          - job_name: kubernetes-pods
+            scrape_interval: 30s
+            scrape_timeout: 10s
+            sample_limit: 10000
+            kubernetes_sd_configs:
+              - role: pod
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                action: keep
+                regex: "true"
+              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+                action: replace
+                target_label: __scheme__
+                regex: (https?)
+              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                action: replace
+                target_label: __metrics_path__
+                regex: (.+)
+              # Construct address:port from pod IP and annotation port
+              - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                action: replace
+                target_label: __address__
+                regex: ([^:]+)(?::\d+)?;(\d+)
+                replacement: $1:$2
+              - action: labelmap
+                regex: __meta_kubernetes_pod_label_(.+)
+              - source_labels: [__meta_kubernetes_namespace]
+                action: replace
+                target_label: namespace
+              - source_labels: [__meta_kubernetes_pod_name]
+                action: replace
+                target_label: pod
+              - source_labels: [__meta_kubernetes_pod_node_name]
+                action: replace
+                target_label: node
+
+    filelog:
+      include:
+        - /var/log/pods/*/*/*.log
+      exclude:
+        - /var/log/pods/*/otelnats-collector*/*.log
+      start_at: end
+      include_file_path: true
+      operators:
+        # Parse log path to extract k8s metadata as resource attributes
+        - type: regex_parser
+          id: parser-container-path
+          regex: '^/var/log/pods/(?P<k8s_namespace_name>[^_]+)_(?P<k8s_pod_name>[^_]+)_(?P<k8s_pod_uid>[^/]+)/(?P<k8s_container_name>[^/]+)/.*\.log$'
+          parse_from: attributes["log.file.path"]
+          parse_to: resource
+        # Rename to standard k8s attribute names for k8sattributes processor
+        - type: move
+          id: set-namespace
+          from: resource["k8s_namespace_name"]
+          to: resource["k8s.namespace.name"]
+        - type: move
+          id: set-pod-name
+          from: resource["k8s_pod_name"]
+          to: resource["k8s.pod.name"]
+        - type: move
+          id: set-pod-uid
+          from: resource["k8s_pod_uid"]
+          to: resource["k8s.pod.uid"]
+        - type: move
+          id: set-container-name
+          from: resource["k8s_container_name"]
+          to: resource["k8s.container.name"]
+        # Route based on log format
+        - type: router
+          id: router-log-format
+          routes:
+            - output: parser-containerd
+              expr: 'body matches "^[^ Z]+Z "'
+            - output: parser-docker
+              expr: 'body matches "^\\{"'
+          default: parser-containerd
+        # Parse containerd format with nanosecond precision
+        - type: regex_parser
+          id: parser-containerd
+          regex: '^(?P<time>[^ Z]+Z) (?P<stream>stdout|stderr) (?P<flags>[^ ]*) ?(?P<log>.*)$'
+          parse_from: body
+          parse_to: attributes
+          timestamp:
+            parse_from: attributes.time
+            layout: "%Y-%m-%dT%H:%M:%S.%fZ"
+          output: move-body
+        # Parse docker JSON format
+        - type: json_parser
+          id: parser-docker
+          parse_from: body
+          parse_to: attributes
+          timestamp:
+            parse_from: attributes.time
+            layout: "%Y-%m-%dT%H:%M:%S.%fZ"
+          output: move-body
+        - type: move
+          id: move-body
+          from: attributes.log
+          to: body
+
+  processors:
+    k8sattributes:
+      auth_type: serviceAccount
+      passthrough: false
+      extract:
+        metadata:
+          - k8s.namespace.name
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.deployment.name
+          - k8s.node.name
+          - k8s.container.name
+        labels:
+          - tag_name: app
+            key: app.kubernetes.io/name
+            from: pod
+      pod_association:
+        # For filelog: match by pod UID from parsed log path
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+        # For prometheus: match by pod IP
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.ip
+        # Fallback for other receivers
+        - sources:
+            - from: connection
+
+    batch:
+      timeout: 5s
+      send_batch_size: 1000
+
+    # Memory limiter should be ~80% of container memory limit to prevent OOMKill
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 400       # 80% of 512Mi limit
+      spike_limit_mib: 100 # 80% of 128Mi spike
+
+  exporters:
+    nats:
+      url: nats://nats.nats-system:4222
+      auth:
+        credentials_file: /etc/nats/creds/daemonset.creds
+      metrics:
+        subject: otel.metrics.${env:CLUSTER_NAME:-undefined}
+      logs:
+        subject: otel.logs.${env:CLUSTER_NAME:-undefined}
+      timeout: 5s
+      retry_on_failure:
+        enabled: true
+        initial_interval: 1s
+        max_interval: 30s
+
+  extensions:
+    health_check:
+      endpoint: 0.0.0.0:13133
+
+  service:
+    extensions: [health_check]
+    pipelines:
+      metrics:
+        receivers: [prometheus]
+        processors: [memory_limiter, k8sattributes, batch]
+        exporters: [nats]
+      logs:
+        receivers: [filelog]
+        processors: [memory_limiter, k8sattributes, batch]
+        exporters: [nats]
+
+# Mount host paths for log collection
+extraVolumes:
+  - name: varlogpods
+    hostPath:
+      path: /var/log/pods
+  # Optional: Only needed for Docker runtime (most modern K8s clusters use containerd)
+  # Remove this if using containerd - /var/log/pods is sufficient
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: nats-creds
+    secret:
+      secretName: nats-daemonset-creds
+
+extraVolumeMounts:
+  - name: varlogpods
+    mountPath: /var/log/pods
+    readOnly: true
+  # Optional: Only needed for Docker runtime
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: nats-creds
+    mountPath: /etc/nats/creds
+    readOnly: true
+
+# Required RBAC for k8sattributes processor and Prometheus SD
+clusterRole:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "namespaces", "nodes", "services", "endpoints"]
+      verbs: ["get", "watch", "list"]
+    - apiGroups: ["apps"]
+      resources: ["replicasets", "deployments", "daemonsets", "statefulsets"]
+      verbs: ["get", "watch", "list"]
+
+# Resource limits - adjust based on cluster size and log volume
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Tolerations to run on worker nodes
+# Remove or adjust if you need to run on control plane nodes
+tolerations:
+  - key: node-role.kubernetes.io/worker
+    operator: Exists
+    effect: NoSchedule
+
+# Security context - requires root for reading host logs
+# but with hardening to limit attack surface
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - DAC_READ_SEARCH  # Required to read log files
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 0

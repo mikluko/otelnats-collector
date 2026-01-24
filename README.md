@@ -25,11 +25,26 @@ Rather than wait indefinitely for sponsorship, this project delivers NATS integr
 
 ## Components
 
-### Receiver: `nats`
-Subscribes to NATS subjects and ingests telemetry data into the collector pipeline.
+### Custom Components
 
-### Exporter: `nats`
-Publishes telemetry data to NATS subjects for downstream consumption.
+| Component | Type | Description |
+|-----------|------|-------------|
+| `nats` | Receiver | Subscribe to NATS subjects and ingest telemetry |
+| `nats` | Exporter | Publish telemetry to NATS subjects |
+
+### Included OTel Contrib Components
+
+For DaemonSet/scraping use cases:
+
+| Component | Type | Description |
+|-----------|------|-------------|
+| `prometheus` | Receiver | Scrape Prometheus metrics from pods |
+| `filelog` | Receiver | Collect container logs from node filesystem |
+| `hostmetrics` | Receiver | Collect node-level system metrics |
+| `k8sattributes` | Processor | Enrich telemetry with Kubernetes metadata |
+| `resourcedetection` | Processor | Detect cloud provider metadata |
+
+Standard processors (`batch`, `memory_limiter`, `transform`) and exporters (`otlp`, `otlphttp`, `debug`) are also included.
 
 ## Installation
 
@@ -85,13 +100,59 @@ helm install otelnats-ingest open-telemetry/opentelemetry-collector \
   -f examples/helm/ingest-jetstream-values.yaml
 ```
 
+#### DaemonSet Mode (Node Scraping → NATS)
+
+Deploy as a DaemonSet to collect metrics and logs directly from Kubernetes nodes:
+
+```bash
+helm install otelnats-daemonset open-telemetry/opentelemetry-collector \
+  -f examples/helm/daemonset-values.yaml
+```
+
+This mode enables:
+- Prometheus metrics scraping from pods with `prometheus.io/scrape: "true"` annotations
+- Container log collection from `/var/log/pods`
+- Node-level metrics (CPU, memory, disk, network)
+- Kubernetes metadata enrichment (pod, namespace, deployment labels)
+
+##### RBAC Requirements
+
+The DaemonSet mode requires additional RBAC permissions for the `k8sattributes` processor and Prometheus service discovery:
+
+```yaml
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets", "deployments", "daemonsets", "statefulsets"]
+    verbs: ["get", "watch", "list"]
+```
+
+##### Security Considerations
+
+DaemonSet deployment requires elevated privileges:
+
+| Requirement | Purpose |
+|-------------|---------|
+| `hostPath` volumes | Access `/var/log/pods` for container logs |
+| `runAsUser: 0` | Read log files owned by root |
+| Network access to kubelet | Prometheus service discovery |
+
+**Recommendations:**
+- Use dedicated ServiceAccount with minimal required permissions
+- Consider PodSecurityPolicy/PodSecurityStandard exemptions for the collector namespace
+- Restrict NATS credentials to publish-only permissions
+- Use network policies to limit collector egress to NATS endpoints only
+
 See [examples/helm/](./examples/helm/) for complete values file examples.
 
 ## Configuration
 
 See [examples/](./examples/) directory for complete configuration examples:
-- `examples/gateway/`: NATS as telemetry gateway
-- `examples/ingest/`: NATS as telemetry source
+- `examples/gateway/`: NATS as telemetry gateway (OTLP → NATS)
+- `examples/ingest/`: NATS as telemetry source (NATS → backend)
+- `examples/daemonset/`: Node-level scraping (Prometheus/logs → NATS)
 
 ## Development
 
