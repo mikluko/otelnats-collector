@@ -194,10 +194,12 @@ processors:
     timeout: 5s
     send_batch_size: 1000
 
+  # Memory limiter should be ~80% of container memory limit to prevent OOMKill
+  # Adjust these values based on your resource limits
   memory_limiter:
     check_interval: 1s
-    limit_mib: 512
-    spike_limit_mib: 128
+    limit_mib: 400       # 80% of 512Mi limit
+    spike_limit_mib: 100 # 80% of 128Mi spike
 
 exporters:
   nats:

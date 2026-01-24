@@ -162,10 +162,11 @@ config:
       timeout: 5s
       send_batch_size: 1000
 
+    # Memory limiter should be ~80% of container memory limit to prevent OOMKill
     memory_limiter:
       check_interval: 1s
-      limit_mib: 512
-      spike_limit_mib: 128
+      limit_mib: 400       # 80% of 512Mi limit
+      spike_limit_mib: 100 # 80% of 128Mi spike
 
   exporters:
     nats:
@@ -203,6 +204,8 @@ extraVolumes:
   - name: varlogpods
     hostPath:
       path: /var/log/pods
+  # Optional: Only needed for Docker runtime (most modern K8s clusters use containerd)
+  # Remove this if using containerd - /var/log/pods is sufficient
   - name: varlibdockercontainers
     hostPath:
       path: /var/lib/docker/containers
@@ -214,6 +217,7 @@ extraVolumeMounts:
   - name: varlogpods
     mountPath: /var/log/pods
     readOnly: true
+  # Optional: Only needed for Docker runtime
   - name: varlibdockercontainers
     mountPath: /var/lib/docker/containers
     readOnly: true
