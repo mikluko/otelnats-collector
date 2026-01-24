@@ -3,6 +3,11 @@
 #
 # Use case: Deploy as a DaemonSet to scrape Prometheus metrics from pods,
 # collect container logs from node filesystem, and forward to NATS JetStream.
+#
+# Required environment variables:
+#   CLUSTER_NAME - Cluster identifier used in NATS subject namespacing
+#                  Example: "production", "staging", "dev-cluster-1"
+#                  Subjects will be: otel.metrics.{CLUSTER_NAME}, otel.logs.{CLUSTER_NAME}
 
 receivers:
   # Scrape Prometheus metrics from pods with prometheus.io annotations
@@ -10,6 +15,9 @@ receivers:
     config:
       scrape_configs:
         - job_name: kubernetes-pods
+          scrape_interval: 30s
+          scrape_timeout: 10s
+          sample_limit: 10000
           kubernetes_sd_configs:
             - role: pod
           relabel_configs:
@@ -17,17 +25,22 @@ receivers:
             - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
               action: keep
               regex: "true"
-            # Use custom port if specified
-            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+            # Use custom scheme if specified (http/https)
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
               action: replace
-              target_label: __address__
-              regex: (.+)
-              replacement: $1
+              target_label: __scheme__
+              regex: (https?)
             # Use custom path if specified
             - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
               action: replace
               target_label: __metrics_path__
               regex: (.+)
+            # Construct address with custom port if specified
+            - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+              action: replace
+              target_label: __address__
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
             # Add pod labels as metric labels
             - action: labelmap
               regex: __meta_kubernetes_pod_label_(.+)
@@ -56,9 +69,26 @@ receivers:
       # Parse container log path to extract metadata
       - type: regex_parser
         id: parser-container-path
-        regex: '^/var/log/pods/(?P<namespace>[^_]+)_(?P<pod>[^_]+)_(?P<uid>[^/]+)/(?P<container>[^/]+)/.*\.log$'
+        regex: '^/var/log/pods/(?P<k8s_namespace_name>[^_]+)_(?P<k8s_pod_name>[^_]+)_(?P<k8s_pod_uid>[^/]+)/(?P<k8s_container_name>[^/]+)/.*\.log$'
         parse_from: attributes["log.file.path"]
-        parse_to: attributes
+        parse_to: resource
+      # Set standard k8s resource attribute names
+      - type: move
+        id: set-namespace
+        from: resource["k8s_namespace_name"]
+        to: resource["k8s.namespace.name"]
+      - type: move
+        id: set-pod-name
+        from: resource["k8s_pod_name"]
+        to: resource["k8s.pod.name"]
+      - type: move
+        id: set-pod-uid
+        from: resource["k8s_pod_uid"]
+        to: resource["k8s.pod.uid"]
+      - type: move
+        id: set-container-name
+        from: resource["k8s_container_name"]
+        to: resource["k8s.container.name"]
       # Route based on log format (containerd vs docker)
       - type: router
         id: router-log-format
@@ -76,7 +106,7 @@ receivers:
         parse_to: attributes
         timestamp:
           parse_from: attributes.time
-          layout: "%Y-%m-%dT%H:%M:%S.%LZ"
+          layout: "%Y-%m-%dT%H:%M:%S.%fZ"
         output: move-body
       # Parse docker JSON format
       - type: json_parser
@@ -85,7 +115,7 @@ receivers:
         parse_to: attributes
         timestamp:
           parse_from: attributes.time
-          layout: "%Y-%m-%dT%H:%M:%S.%LZ"
+          layout: "%Y-%m-%dT%H:%M:%S.%fZ"
         output: move-body
       # Plain text fallback
       - type: move
@@ -142,12 +172,15 @@ processors:
           key: owner
           from: namespace
     pod_association:
-      - sources:
-          - from: resource_attribute
-            name: k8s.pod.ip
+      # For filelog: use pod UID parsed from log file path
       - sources:
           - from: resource_attribute
             name: k8s.pod.uid
+      # For prometheus: use pod IP from scraped metrics
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.ip
+      # Fallback: use connection info (works for OTLP receivers)
       - sources:
           - from: connection
 
