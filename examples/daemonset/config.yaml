@@ -207,9 +207,9 @@ exporters:
     # auth:
     #   credentials_file: /etc/nats/creds/daemonset.creds
     metrics:
-      subject: otel.metrics.${env:CLUSTER_NAME}
+      subject: otel.metrics.${env:CLUSTER_NAME:-undefined}
     logs:
-      subject: otel.logs.${env:CLUSTER_NAME}
+      subject: otel.logs.${env:CLUSTER_NAME:-undefined}
     timeout: 5s
     retry_on_failure:
       enabled: true
