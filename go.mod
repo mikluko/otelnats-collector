@@ -3,7 +3,7 @@ module github.com/mikluko/otelnats-collector
 go 1.25.5
 
 require (
-	github.com/mikluko/otelnats v0.7.0
+	github.com/mikluko/otelnats v0.7.1
 	github.com/nats-io/nats-server/v2 v2.12.3
 	github.com/nats-io/nats.go v1.48.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.144.0
