@@ -9,7 +9,7 @@ BUILD_DIR := ./bin
 LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 
 ## build: Build the collector binary
-build: tidy
+build:
 	@mkdir -p $(BUILD_DIR)
 	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) .
 	@echo "Built $(BUILD_DIR)/$(BINARY_NAME)"
