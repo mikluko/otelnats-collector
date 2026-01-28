@@ -2,7 +2,8 @@
 # Consume telemetry from NATS JetStream with at-least-once delivery guarantees.
 #
 # Rate limiting (rate_limit/rate_burst) prevents CPU/memory spikes when
-# catching up on backlogs after restarts.
+# catching up on backlogs after restarts. Memory limiter acts as a circuit
+# breaker when memory usage exceeds thresholds.
 #
 # Usage:
 #   helm install otelnats-ingest open-telemetry/opentelemetry-collector -f ingest-jetstream-values.yaml
@@ -45,6 +46,10 @@ config:
           rate_burst: 100
 
   processors:
+    memory_limiter:
+      check_interval: 5s
+      limit_percentage: 80
+      spike_limit_percentage: 25
     batch:
       timeout: 1s
       send_batch_size: 1000
@@ -68,15 +73,15 @@ config:
     pipelines:
       traces:
         receivers: [nats]
-        processors: [batch]
+        processors: [memory_limiter, batch]
         exporters: [otlp]
       metrics:
         receivers: [nats]
-        processors: [batch]
+        processors: [memory_limiter, batch]
         exporters: [otlphttp]
       logs:
         receivers: [nats]
-        processors: [batch]
+        processors: [memory_limiter, batch]
         exporters: [otlp]
 
 # Mount NATS credentials from secret
