@@ -4,173 +4,361 @@ Custom OpenTelemetry Collector distribution with NATS receiver and exporter comp
 
 ## Motivation
 
-### Why Not OpenTelemetry Contrib?
-
 This project exists as a standalone distribution due to the [OpenTelemetry Collector Contrib sponsorship requirements](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner).
 
-**Background:**
-- **Issue [#39540](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/39540)**: NATS receiver/exporter proposal was accepted as legitimate and remains open with "Sponsor Needed" label
-- **PR [#42186](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/42186)**: Initial implementation was submitted but closed due to lack of community sponsorship
+- **Issue [#39540](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/39540)**: NATS receiver/exporter proposal accepted, remains open with "Sponsor Needed" label
+- **PR [#42186](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/42186)**: Implementation submitted but closed due to lack of community sponsorship
 
-The upstream project requires new components to have an established sponsor (code owner) who commits to long-term maintenance. Without organizational backing from a recognized contributor, components cannot be merged into the contrib repository.
-
-Rather than wait indefinitely for sponsorship, this project delivers NATS integration as a custom collector distribution that can be maintained independently.
-
-## Features
-
-- **NATS Receiver**: Ingest telemetry data (traces, metrics, logs) from NATS subjects
-- **NATS Exporter**: Stream telemetry data to NATS subjects
-- **Standard OTel Ecosystem**: Full compatibility with OpenTelemetry Collector processors, exporters, and extensions
-- **Production Ready**: Deploys via official OpenTelemetry Collector Helm chart with custom image
+Rather than wait for sponsorship, this project delivers NATS integration as a custom collector distribution maintained independently.
 
 ## Components
 
-### Custom Components
+### NATS (custom)
 
 | Component | Type | Description |
 |-----------|------|-------------|
-| `nats` | Receiver | Subscribe to NATS subjects and ingest telemetry |
-| `nats` | Exporter | Publish telemetry to NATS subjects |
+| `nats` | Receiver | Subscribe to NATS subjects and ingest OTLP telemetry (Core NATS or JetStream) |
+| `nats` | Exporter | Publish OTLP telemetry to NATS subjects |
 
-### Included OTel Contrib Components
-
-For DaemonSet/scraping use cases:
+### OTel Contrib
 
 | Component | Type | Description |
 |-----------|------|-------------|
-| `prometheus` | Receiver | Scrape Prometheus metrics from pods |
+| `prometheus` | Receiver | Scrape Prometheus metrics endpoints |
 | `filelog` | Receiver | Collect container logs from node filesystem |
 | `hostmetrics` | Receiver | Collect node-level system metrics |
 | `k8sattributes` | Processor | Enrich telemetry with Kubernetes metadata |
-| `resourcedetection` | Processor | Detect cloud provider metadata |
+| `resourcedetection` | Processor | Detect cloud/infrastructure metadata |
+| `transform` | Processor | Modify telemetry using OTTL statements |
 
-Standard processors (`batch`, `memory_limiter`, `transform`) and exporters (`otlp`, `otlphttp`, `debug`) are also included.
+### OTel Core
 
-## Installation
+| Component | Type |
+|-----------|------|
+| `otlp` | Receiver |
+| `otlp`, `otlphttp` | Exporters |
+| `debug` | Exporter |
+| `batch`, `memory_limiter` | Processors |
+| `health_check`, `zpages` | Extensions |
 
-### Binary
+## Kubernetes Deployment
 
-```bash
-# Build from source
-make build
+The intended deployment model uses the official [opentelemetry-collector](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-collector) Helm chart with the custom image override. No custom Helm chart is needed.
 
-# Binary will be available at ./bin/nats-otel-collector
-./bin/nats-otel-collector --config=config.yaml
+### Image
+
+Container images are published to GHCR:
+
+```
+ghcr.io/mikluko/otelnats-collector:<version>
 ```
 
-### Docker
+The image is a drop-in replacement for the standard `otel/opentelemetry-collector-contrib` image. Override it in the chart values:
 
-```bash
-# Build Docker image
-make docker-build
-
-# Run with configuration
-docker run -v $(pwd)/config.yaml:/etc/otel/config.yaml \
-  nats-otel-collector:latest --config=/etc/otel/config.yaml
+```yaml
+image:
+  repository: ghcr.io/mikluko/otelnats-collector
+  tag: "0.3.1"
 ```
 
-### Kubernetes (Helm)
-
-Use the official OpenTelemetry Collector Helm chart with the custom NATS-enabled image:
+### Helm Setup
 
 ```bash
-# Add the official OpenTelemetry Helm repository
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo update
 ```
 
-#### Gateway Mode (OTLP → NATS)
+The chart supports two deployment modes via the `mode` value: `deployment` and `daemonset`. Different roles in the telemetry pipeline call for different modes.
 
-```bash
-helm install otelnats-gateway open-telemetry/opentelemetry-collector \
-  -f examples/helm/gateway-values.yaml
-```
+### Deployment Mode
 
-#### Ingest Mode (NATS → Backend)
+Use `mode: deployment` for stateless collector instances that receive telemetry via OTLP or consume from NATS and forward to backends.
 
-Core NATS with queue groups:
-```bash
-helm install otelnats-ingest open-telemetry/opentelemetry-collector \
-  -f examples/helm/ingest-values.yaml
-```
-
-JetStream with at-least-once delivery:
-```bash
-helm install otelnats-ingest open-telemetry/opentelemetry-collector \
-  -f examples/helm/ingest-jetstream-values.yaml
-```
-
-#### DaemonSet Mode (Node Scraping → NATS)
-
-Deploy as a DaemonSet to collect metrics and logs directly from Kubernetes nodes:
-
-```bash
-helm install otelnats-daemonset open-telemetry/opentelemetry-collector \
-  -f examples/helm/daemonset-values.yaml
-```
-
-This mode enables:
-- Prometheus metrics scraping from pods with `prometheus.io/scrape: "true"` annotations
-- Container log collection from `/var/log/pods`
-- Node-level metrics (CPU, memory, disk, network)
-- Kubernetes metadata enrichment (pod, namespace, deployment labels)
-
-##### RBAC Requirements
-
-The DaemonSet mode requires additional RBAC permissions for the `k8sattributes` processor and Prometheus service discovery:
+**Gateway (OTLP -> NATS)** — accepts OTLP from applications, publishes to NATS subjects:
 
 ```yaml
-rules:
-  - apiGroups: [""]
-    resources: ["pods", "namespaces", "nodes"]
-    verbs: ["get", "watch", "list"]
-  - apiGroups: ["apps"]
-    resources: ["replicasets", "deployments", "daemonsets", "statefulsets"]
-    verbs: ["get", "watch", "list"]
+image:
+  repository: ghcr.io/mikluko/otelnats-collector
+  tag: "0.3.1"
+
+mode: deployment
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+  exporters:
+    nats:
+      url: nats://nats.nats-system:4222
+      auth:
+        credentials_file: /mnt/secrets/nats.creds
+      traces:
+        subject: otel.traces
+      metrics:
+        subject: otel.metrics
+      logs:
+        subject: otel.logs
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [nats]
+      metrics:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [nats]
+      logs:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [nats]
+
+extraVolumes:
+  - name: nats-creds
+    secret:
+      secretName: nats-creds
+extraVolumeMounts:
+  - name: nats-creds
+    mountPath: /mnt/secrets/nats.creds
+    subPath: nats.creds
+    readOnly: true
 ```
 
-##### Security Considerations
+**Ingest (NATS -> Backend)** — consumes from NATS and exports to observability backends via OTLP:
 
-DaemonSet deployment requires elevated privileges:
+```yaml
+image:
+  repository: ghcr.io/mikluko/otelnats-collector
+  tag: "0.3.1"
 
-| Requirement | Purpose |
-|-------------|---------|
-| `hostPath` volumes | Access `/var/log/pods` for container logs |
-| `runAsUser: 0` | Read log files owned by root |
-| Network access to kubelet | Prometheus service discovery |
+mode: deployment
+replicaCount: 2
 
-**Recommendations:**
-- Use dedicated ServiceAccount with minimal required permissions
-- Consider PodSecurityPolicy/PodSecurityStandard exemptions for the collector namespace
-- Restrict NATS credentials to publish-only permissions
-- Use network policies to limit collector egress to NATS endpoints only
+config:
+  receivers:
+    nats:
+      url: nats://nats.nats-system:4222
+      auth:
+        credentials_file: /mnt/secrets/nats.creds
+      traces:
+        subject: "otel.traces.>"
+        jetstream:
+          stream: OTEL
+          consumer: signal-traces
+      metrics:
+        subject: "otel.metrics.>"
+        jetstream:
+          stream: OTEL
+          consumer: signal-metrics
+      logs:
+        subject: "otel.logs.>"
+        jetstream:
+          stream: OTEL
+          consumer: signal-logs
+  processors:
+    batch:
+      send_batch_size: 8192
+      timeout: 1s
+  exporters:
+    otlphttp:
+      endpoint: http://backend.observability:4318
+  service:
+    pipelines:
+      traces:
+        receivers: [nats]
+        processors: [batch]
+        exporters: [otlphttp]
+      metrics:
+        receivers: [nats]
+        processors: [batch]
+        exporters: [otlphttp]
+      logs:
+        receivers: [nats]
+        processors: [batch]
+        exporters: [otlphttp]
 
-See [examples/helm/](./examples/helm/) for complete values file examples.
+extraVolumes:
+  - name: nats-creds
+    secret:
+      secretName: nats-creds
+extraVolumeMounts:
+  - name: nats-creds
+    mountPath: /mnt/secrets/nats.creds
+    subPath: nats.creds
+    readOnly: true
+```
 
-## Configuration
+The NATS receiver supports both Core NATS (with `queue_group` for load balancing) and JetStream (with `jetstream` block for at-least-once delivery). See [examples/helm/](./examples/helm/) for both variants.
 
-See [examples/](./examples/) directory for complete configuration examples:
-- `examples/gateway/`: NATS as telemetry gateway (OTLP → NATS)
-- `examples/ingest/`: NATS as telemetry source (NATS → backend)
-- `examples/daemonset/`: Node-level scraping (Prometheus/logs → NATS)
+### DaemonSet Mode
+
+Use `mode: daemonset` to collect telemetry directly from Kubernetes nodes — scraping Prometheus endpoints, tailing container logs — and forward everything to NATS.
+
+```yaml
+image:
+  repository: ghcr.io/mikluko/otelnats-collector
+  tag: "0.3.1"
+
+mode: daemonset
+
+extraEnvs:
+  - name: NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: spec.nodeName
+
+config:
+  receivers:
+    prometheus:
+      config:
+        scrape_configs:
+          - job_name: kubernetes-pods
+            scrape_interval: 30s
+            kubernetes_sd_configs:
+              - role: pod
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                action: keep
+                regex: "true"
+              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+                action: replace
+                target_label: __address__
+                regex: ([^:]+)(?::\d+)?;(\d+)
+                replacement: $1:$2
+                source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+    filelog:
+      include:
+        - /var/log/pods/*/*/*.log
+      exclude:
+        - /var/log/pods/*/otelnats-collector*/*.log
+      start_at: end
+      include_file_path: true
+  exporters:
+    nats:
+      url: nats://nats.nats-system:4222
+      auth:
+        credentials_file: /mnt/secrets/nats.creds
+      metrics:
+        subject: otel.metrics.my-cluster
+      logs:
+        subject: otel.logs.my-cluster
+  service:
+    pipelines:
+      metrics:
+        receivers: [prometheus]
+        processors: [memory_limiter, k8sattributes, batch]
+        exporters: [nats]
+      logs:
+        receivers: [filelog]
+        processors: [memory_limiter, k8sattributes, batch]
+        exporters: [nats]
+
+extraVolumes:
+  - name: varlogpods
+    hostPath:
+      path: /var/log/pods
+  - name: nats-creds
+    secret:
+      secretName: nats-creds
+extraVolumeMounts:
+  - name: varlogpods
+    mountPath: /var/log/pods
+    readOnly: true
+  - name: nats-creds
+    mountPath: /mnt/secrets/nats.creds
+    subPath: nats.creds
+    readOnly: true
+
+tolerations:
+  - operator: Exists
+
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+
+clusterRole:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "namespaces", "nodes"]
+      verbs: ["get", "watch", "list"]
+    - apiGroups: ["apps"]
+      resources: ["replicasets", "deployments", "daemonsets", "statefulsets"]
+      verbs: ["get", "watch", "list"]
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+```
+
+DaemonSet mode requires `runAsUser: 0` to read host log files and RBAC rules for the `k8sattributes` processor and Prometheus service discovery.
+
+### GitOps / Flux
+
+For Flux CD deployments, define a `HelmRepository` and `HelmRelease`:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: opentelemetry
+spec:
+  interval: 24h
+  url: https://open-telemetry.github.io/opentelemetry-helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: otelnats
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: opentelemetry-collector
+      version: "0.x"
+      sourceRef:
+        kind: HelmRepository
+        name: opentelemetry
+  values:
+    image:
+      repository: ghcr.io/mikluko/otelnats-collector
+      tag: "0.3.1"
+    mode: deployment
+    # ... collector config
+```
+
+Use Kustomize overlays to layer cluster-specific values (NATS subjects, credentials, resource limits) on top of a shared base.
+
+## Configuration Examples
+
+See [examples/](./examples/) directory:
+
+| File | Description |
+|------|-------------|
+| `examples/helm/gateway-values.yaml` | OTLP -> NATS gateway (Deployment) |
+| `examples/helm/ingest-values.yaml` | NATS -> backend with Core NATS queue groups (Deployment) |
+| `examples/helm/ingest-jetstream-values.yaml` | NATS -> backend with JetStream (Deployment) |
+| `examples/helm/daemonset-values.yaml` | Node scraping -> NATS (DaemonSet) |
+| `examples/gateway/config.yaml` | Standalone gateway config |
+| `examples/ingest/config.yaml` | Standalone ingest config |
+| `examples/daemonset/config.yaml` | Standalone daemonset config |
 
 ## Development
 
 ```bash
-# Run tests
-make test
-
-# Run linter
-make lint
-
-# Build binary
-make build
+make build    # build binary
+make test     # run tests
+make lint     # run linter
 ```
 
 ## License
 
 Apache 2.0
-
-## Contributing
-
-Contributions welcome. This project follows standard Go and OpenTelemetry conventions.
