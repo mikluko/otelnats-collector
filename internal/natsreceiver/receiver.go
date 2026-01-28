@@ -158,6 +158,9 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 		if jsConfig.BacklogSize > 0 {
 			opts = append(opts, otelnats.WithReceiverBacklogSize(jsConfig.BacklogSize))
 		}
+		if jsConfig.RateLimit > 0 {
+			opts = append(opts, otelnats.WithReceiverRateLimit(jsConfig.RateLimit, jsConfig.RateBurst))
+		}
 	} else {
 		// Core NATS mode - use signal-specific queue group if available, otherwise connection-level
 
@@ -185,11 +188,18 @@ func (r *natsReceiver) Start(ctx context.Context, _ component.Host) error {
 
 	// Log startup info
 	if jsConfig != nil {
-		r.logger.Info("NATS receiver started (JetStream mode)",
+		fields := []zap.Field{
 			zap.String("url", r.config.URL),
 			zap.String("stream", jsConfig.Stream),
 			zap.String("consumer", jsConfig.Consumer),
-		)
+		}
+		if jsConfig.RateLimit > 0 {
+			fields = append(fields,
+				zap.Float64("rate_limit", jsConfig.RateLimit),
+				zap.Int("rate_burst", jsConfig.RateBurst),
+			)
+		}
+		r.logger.Info("NATS receiver started (JetStream mode)", fields...)
 	} else {
 		queueGroup := r.config.QueueGroup
 		if signalConfig != nil && signalConfig.QueueGroup != "" {

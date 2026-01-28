@@ -65,9 +65,22 @@ type JetStreamConfig struct {
 	// Default is 30 seconds.
 	AckWait time.Duration `mapstructure:"ack_wait,omitempty"`
 
-	// BacklogSize is the buffer size for message backlog.
+	// BacklogSize is the buffer size for message backlog (core NATS mode only).
 	// Default is 100.
+	// NOTE: This option does NOT apply when rate limiting is enabled,
+	// which uses the Fetch API and processes messages directly.
 	BacklogSize int `mapstructure:"backlog_size,omitempty"`
+
+	// RateLimit enables token bucket rate limiting for message consumption.
+	// Specifies the target rate in messages per second.
+	// When enabled, switches from push-based Consume() to pull-based Fetch() API.
+	// Tokens are acquired BEFORE fetching to avoid wasting ACK timeout.
+	// A value of 0 disables rate limiting (default).
+	RateLimit float64 `mapstructure:"rate_limit,omitempty"`
+
+	// RateBurst is the token bucket capacity (maximum burst size).
+	// Required when RateLimit is set. Also used as the default fetch batch size.
+	RateBurst int `mapstructure:"rate_burst,omitempty"`
 }
 
 var _ component.Config = (*Config)(nil)
@@ -117,6 +130,15 @@ func (c *Config) Validate() error {
 			}
 			if cfg.JetStream.BacklogSize < 0 {
 				return errors.New(name + ".jetstream.backlog_size must be non-negative")
+			}
+			if cfg.JetStream.RateLimit < 0 {
+				return errors.New(name + ".jetstream.rate_limit must be non-negative")
+			}
+			if cfg.JetStream.RateLimit > 0 && cfg.JetStream.RateBurst <= 0 {
+				return errors.New(name + ".jetstream.rate_burst is required when rate_limit is set")
+			}
+			if cfg.JetStream.RateBurst < 0 {
+				return errors.New(name + ".jetstream.rate_burst must be non-negative")
 			}
 		}
 	}

@@ -149,16 +149,25 @@ config:
         jetstream:
           stream: OTEL
           consumer: signal-traces
+          ack_wait: 60s
+          rate_limit: 1000  # messages/sec (optional)
+          rate_burst: 100   # token bucket capacity
       metrics:
         subject: "otel.metrics.>"
         jetstream:
           stream: OTEL
           consumer: signal-metrics
+          ack_wait: 60s
+          rate_limit: 1000
+          rate_burst: 100
       logs:
         subject: "otel.logs.>"
         jetstream:
           stream: OTEL
           consumer: signal-logs
+          ack_wait: 60s
+          rate_limit: 1000
+          rate_burst: 100
   processors:
     batch:
       send_batch_size: 8192
@@ -193,6 +202,8 @@ extraVolumeMounts:
 ```
 
 The NATS receiver supports both Core NATS (with `queue_group` for load balancing) and JetStream (with `jetstream` block for at-least-once delivery). See [examples/helm/](./examples/helm/) for both variants.
+
+**JetStream Rate Limiting**: Use `rate_limit` and `rate_burst` to throttle message consumption. This prevents CPU/memory spikes when catching up on backlogs after restarts. Rate limiting uses a token bucket algorithm — tokens are acquired *before* fetching messages to avoid wasting ACK timeout on buffered messages.
 
 ### DaemonSet Mode
 

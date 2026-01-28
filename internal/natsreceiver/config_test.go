@@ -99,6 +99,71 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: "",
 		},
+		{
+			name: "valid jetstream with rate limiting",
+			cfg: &Config{
+				ClientConfig: internalnats.ClientConfig{
+					URL: "nats://localhost:4222",
+				},
+				Traces: SignalConfig{
+					Subject: "otel.traces",
+					JetStream: &JetStreamConfig{
+						Stream:    "OTEL",
+						RateLimit: 1000,
+						RateBurst: 100,
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "jetstream rate_limit without rate_burst",
+			cfg: &Config{
+				ClientConfig: internalnats.ClientConfig{
+					URL: "nats://localhost:4222",
+				},
+				Traces: SignalConfig{
+					Subject: "otel.traces",
+					JetStream: &JetStreamConfig{
+						Stream:    "OTEL",
+						RateLimit: 1000,
+					},
+				},
+			},
+			wantErr: "rate_burst is required when rate_limit is set",
+		},
+		{
+			name: "jetstream negative rate_limit",
+			cfg: &Config{
+				ClientConfig: internalnats.ClientConfig{
+					URL: "nats://localhost:4222",
+				},
+				Traces: SignalConfig{
+					Subject: "otel.traces",
+					JetStream: &JetStreamConfig{
+						Stream:    "OTEL",
+						RateLimit: -1,
+					},
+				},
+			},
+			wantErr: "rate_limit must be non-negative",
+		},
+		{
+			name: "jetstream negative rate_burst",
+			cfg: &Config{
+				ClientConfig: internalnats.ClientConfig{
+					URL: "nats://localhost:4222",
+				},
+				Traces: SignalConfig{
+					Subject: "otel.traces",
+					JetStream: &JetStreamConfig{
+						Stream:    "OTEL",
+						RateBurst: -1,
+					},
+				},
+			},
+			wantErr: "rate_burst must be non-negative",
+		},
 	}
 
 	for _, tt := range tests {
