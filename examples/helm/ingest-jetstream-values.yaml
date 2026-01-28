@@ -1,5 +1,8 @@
 # Ingest mode with JetStream: NATS JetStream → OTLP backend
-# Consume telemetry from NATS JetStream with at-least-once delivery guarantees
+# Consume telemetry from NATS JetStream with at-least-once delivery guarantees.
+#
+# Rate limiting (rate_limit/rate_burst) prevents CPU/memory spikes when
+# catching up on backlogs after restarts.
 #
 # Usage:
 #   helm install otelnats-ingest open-telemetry/opentelemetry-collector -f ingest-jetstream-values.yaml
@@ -16,17 +19,30 @@ config:
       url: nats://nats.nats-system:4222
       auth:
         credentials_file: /etc/nats/creds/ingest.creds
-      jetstream:
-        stream: OTEL_TELEMETRY
-        consumer: otel-collector
-        ack_wait: 30s
-        backlog_size: 100
       traces:
-        subject: otel.traces
+        subject: "otel.traces.>"
+        jetstream:
+          stream: OTEL_TELEMETRY
+          consumer: signal-traces
+          ack_wait: 30s
+          rate_limit: 1000
+          rate_burst: 100
       metrics:
-        subject: otel.metrics
+        subject: "otel.metrics.>"
+        jetstream:
+          stream: OTEL_TELEMETRY
+          consumer: signal-metrics
+          ack_wait: 30s
+          rate_limit: 1000
+          rate_burst: 100
       logs:
-        subject: otel.logs
+        subject: "otel.logs.>"
+        jetstream:
+          stream: OTEL_TELEMETRY
+          consumer: signal-logs
+          ack_wait: 30s
+          rate_limit: 1000
+          rate_burst: 100
 
   processors:
     batch:
