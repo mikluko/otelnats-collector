@@ -7,6 +7,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver"
 	"go.opentelemetry.io/collector/connector"
 	"go.opentelemetry.io/collector/exporter"
@@ -47,6 +48,7 @@ func components() (otelcol.Factories, error) {
 		prometheusreceiver.NewFactory(),
 		filelogreceiver.NewFactory(),
 		hostmetricsreceiver.NewFactory(),
+		kubeletstatsreceiver.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err

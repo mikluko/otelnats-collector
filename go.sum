@@ -542,6 +542,8 @@ github.com/open-telemetry/opentelemetry-collector-contrib/internal/healthcheck v
 github.com/open-telemetry/opentelemetry-collector-contrib/internal/healthcheck v0.144.0/go.mod h1:DKq9iES/Lfpo5vh+TB2LIN7ID+rE7XWh1vIEAdD9KiI=
 github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.144.0 h1:i8xJYSY5liuQ3QbxTx/W3ltlGrHxG8ZvP/+Ir/eDsbs=
 github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig v0.144.0/go.mod h1:p3bzbPIi6azPxwbKSuEnqKJtF4smoRT8B0gCPfN5IY8=
+github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet v0.144.0 h1:PrCkqc3QLUv9ohKMgbDcyoFYEG92IP04WeVuLbq0Q/Y=
+github.com/open-telemetry/opentelemetry-collector-contrib/internal/kubelet v0.144.0/go.mod h1:cy6lVQs6dI24L+gV9y0MtNL3QDeM+TjHW0tF2JfP8oM=
 github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders v0.144.0 h1:tMZLreHI8FQu+4l33Itw0FVt1rlySLpDufxXizCOhpI=
 github.com/open-telemetry/opentelemetry-collector-contrib/internal/metadataproviders v0.144.0/go.mod h1:7DIvSVvKNmj7464eCIzn+qiWfw8AxvGa1GHoHYfb7wg=
 github.com/open-telemetry/opentelemetry-collector-contrib/internal/pdatautil v0.144.0 h1:rKOjm6SH6W50L1Qe2YB56KSzDUGTMK/+f2CfmPGuFts=
@@ -582,6 +584,8 @@ github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiv
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver v0.144.0/go.mod h1:/PP4+s/xJkVkZePVpINDSKgEz/H18CiBDkF2U8xhlzE=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.144.0 h1:wuUengfBn3fOyC8D364xAjUB3JxztoqK3ZDEd0XRmzY=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.144.0/go.mod h1:87pmk8QXJEeHZ6VN6Af0Wz+n8C7NAymYN8Nv+rUUh0o=
+github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver v0.144.0 h1:s8wZP1zI7AdGRCQ6leBv3IoYr+7SfreNkBMpnUBpPMU=
+github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver v0.144.0/go.mod h1:jOFUkzwhXKsYH0opfLU2BzPWetbWr63/9k8gCuJws+k=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.144.0 h1:XKQCsHDTo1RQgftC3dSNyBQH0D4OPNRziV9R48tZ1gY=
 github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver v0.144.0/go.mod h1:GOQNM30eSQR7zy9rxV27hcgl+HC8CumUIgkI2d0FYoA=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
@@ -1161,6 +1165,8 @@ k8s.io/klog/v2 v2.130.1 h1:n9Xl7H1Xvksem4KFG4PYbdQCQxqc/tTUyrgXaOhHSzk=
 k8s.io/klog/v2 v2.130.1/go.mod h1:3Jpz1GvMt720eyJH1ckRHK1EDfpxISzJ7I9OYgaDtPE=
 k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b h1:MloQ9/bdJyIu9lb1PzujOPolHyvO06MXG5TUIj2mNAA=
 k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b/go.mod h1:UZ2yyWbFTpuhSbFhv24aGNOdoRdJZgsIObGBUaYVsts=
+k8s.io/kubelet v0.34.3 h1:8QRev2FmasZ05yCC774qn6ULche72PYM7AQv0CVt9CM=
+k8s.io/kubelet v0.34.3/go.mod h1:pMgblr+nVQ02UkyaTcgqzS3AIYVQkjlMFg1Pd5rGC1Q=
 k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 h1:hwvWFiBzdWw1FhfY1FooPn3kzWuJ8tmbZBHi4zVsl1Y=
 k8s.io/utils v0.0.0-20250604170112-4c0f3b243397/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 h1:gBQPwqORJ8d8/YNZWEjoZs7npUVDpVXUUOFfW6CgAqE=
