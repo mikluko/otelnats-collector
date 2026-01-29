@@ -10,6 +10,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/bearertokenauthextension v0.144.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/headerssetterextension v0.144.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.144.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/extension/k8sleaderelector v0.144.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/oauth2clientauthextension v0.144.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension v0.144.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/attributesprocessor v0.144.0
@@ -250,7 +251,6 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
-	github.com/open-telemetry/opentelemetry-collector-contrib/extension/k8sleaderelector v0.144.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/ecsutil v0.144.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.144.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.144.0 // indirect
